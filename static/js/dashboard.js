@@ -396,11 +396,16 @@ async function loadRooms() {
             displayRoomDevices(rooms[0].id);
         }
         
+        // Hide loader after everything is loaded
+        hideLoader();
+        
     } catch (error) {
         console.error('Error loading rooms:', error);
         document.getElementById('roomsContainer').innerHTML = `
             <div class="error">Unable to load rooms</div>
         `;
+        // Hide loader even if there's an error
+        hideLoader();
     }
 }
 
@@ -1148,3 +1153,13 @@ document.addEventListener('DOMContentLoaded', () => {
     
     loadRooms();
 });
+
+// Add at the start of the file
+function hideLoader() {
+    const loader = document.getElementById('loaderModal');
+    loader.classList.add('hide');
+    // Remove the loader from DOM after animation
+    setTimeout(() => {
+        loader.style.display = 'none';
+    }, 300);
+}

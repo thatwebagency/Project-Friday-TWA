@@ -853,6 +853,7 @@ div#setupCompleteModal {
     flex-direction: column;
     position: relative;
     max-height: 100%;
+    padding-top: 30px;
 }
 
 .dashboard-right {
@@ -975,7 +976,6 @@ div#setupCompleteModal {
     overflow-x: auto;
     gap: 15px;
     padding: 10px 0;
-    scroll-snap-type: x mandatory;
     scrollbar-width: none;  /* Firefox */
     -ms-overflow-style: none;  /* IE and Edge */
 }
@@ -985,9 +985,8 @@ div#setupCompleteModal {
 }
 
 .forecast-hour {
-    flex: 0 0 calc(33.333% - 10px);  /* Show 3 items at a time */
     scroll-snap-align: start;
-    min-width: 100px;  /* Minimum width for each forecast card */
+    min-width: 68px;  /* Minimum width for each forecast card */
 }
 
 .forecast-time {
@@ -1778,7 +1777,7 @@ input.vertical-brightness-slider {
 /* Settings Link Styles */
 .settings-link {
     position: absolute;
-    top: 20px;
+    top: 33px;
     right: 20px;
     width: 40px;
     height: 40px;
@@ -1825,3 +1824,67 @@ input.vertical-brightness-slider {
     margin-left: 4px;
 }
 
+img.friday-logo {
+    width: 40px;
+    filter: invert(1);
+}
+
+.logo-section {
+    margin-bottom: 20px;
+}
+
+/* Loader Modal Styles */
+.loader-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgb(0 0 0 / 80%);
+    backdrop-filter: blur(8px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 2000;
+    opacity: 1;
+    transition: opacity 0.3s ease;
+}
+
+.loader-modal.hide {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.loader-content {
+    width: 200px;
+    height: 200px;
+    border-radius: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+.loader-logo {
+    width: 60px;
+    height: 60px;
+    object-fit: contain;
+    filter: invert(1);
+}
+
+.loader-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid rgba(0, 0, 0, 0.1);
+    border-radius: 50%;
+    border-top-color: white;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}

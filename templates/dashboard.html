@@ -3,6 +3,14 @@
 {% block content %}
 <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
 <div class="dashboard-container">
+    <!-- Add loader modal at the top -->
+    <div class="loader-modal" id="loaderModal">
+        <div class="loader-content">
+            <img src="{{ url_for('static', filename='images/projectfridaylogoicon.png') }}" alt="Project Friday Logo" class="loader-logo">
+            <div class="loader-spinner"></div>
+        </div>
+    </div>
+    
     <!-- Left Section -->
     <div class="dashboard-left">
         <a href="/settings" class="settings-link">
@@ -12,6 +20,9 @@
             </svg>
         </a>
         <div class="time-section">
+            <div class="logo-section">
+                <img src="{{ url_for('static', filename='images/projectfridaylogoicon.png') }}" alt="Project Friday Logo" class="friday-logo">
+            </div>
             <span class="time-label">It's currently</span>
             <span class="current-time" id="currentTime"></span>
             <span class="current-date" id="currentDate"></span>

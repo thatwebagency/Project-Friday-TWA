@@ -78,8 +78,6 @@ pip install -r requirements.txt
 4. **Initialize Database**
 ```bash
 flask db init
-flask db migrate
-flask db upgrade
 ```
 
 5. **Configure Environment**
