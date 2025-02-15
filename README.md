@@ -5,7 +5,7 @@
 Project Friday is a modern, simplified dashboard interface designed for Tablet devices, for Home Assistant that provides an intuitive way to control your smart home. It focuses on delivering a clean, customizable interface for managing essential home automation controls.
 
 ## Project Friday Dashboard
-![Project Friday Dashboard](docs/images/dashboarddemo.gif)
+![Project Friday Dashboard](https://community-assets.home-assistant.io/original/4X/2/7/1/271bb78a8bea25699579afc01015a3f43c5a7081.gif)
 
 ## Features
 
