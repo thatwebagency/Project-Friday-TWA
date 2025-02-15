@@ -3,9 +3,13 @@
 {% block content %}
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 <script src="{{ url_for('static', filename='js/settings.js') }}"></script>
-
+<link rel="stylesheet" href="{{ url_for('static', filename='css/settings.css') }}">
 <!-- Add CSS for drag handle -->
 <style>
+    button.tab-button.active {
+        background: none;
+    }
+
     .room-entry {
         display: flex;
         align-items: center;
@@ -92,7 +96,13 @@
 </style>
 
 <div class="setup-container">
-    <h2 class="setup-header-text">Configure Friday</h2>
+    <div class="settings-header-container">
+        <a href="/" class="back-to-dashboard">
+            <i class="fas fa-arrow-left"></i>
+            Back to Dashboard
+        </a>
+        <h2 class="setup-header-text">Configure Friday</h2>
+    </div>
     <div class="settings-tabs">
         <button class="tab-button active" data-tab="connection">Connection</button>
         <button class="tab-button" data-tab="rooms">Rooms</button>
