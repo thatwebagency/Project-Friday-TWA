@@ -47,6 +47,9 @@ Project Friday is a modern, simplified dashboard interface designed for Tablet d
 - Automatic updates
 
 ## Getting Started
+⚠️ **Warning**: Project Friday only works with Home Assistant Cloud connected (Nabu Casa) instances using your Nabu Casa remote URL. Currently resolving issue with LOCAL IP address setup.
+⚠️ **Warning**: Project Friday is currently in active development. While functional, you may encounter bugs or incomplete features. Please report any issues on GitHub.
+
 
 ### Prerequisites
 - Python 3.8 or higher
@@ -99,8 +102,8 @@ The application will be available at:
 
 1. Access Project Friday at the URL
 2. Enter your Home Assistant details:
-   - Home Assistant URL (e.g., `homeassistant.local:8123`)
-   - Long-lived Access Token (generated from Home Assistant)
+   - Home Assistant URL (e.g., `https://xxx.ui.nabu.casa`)
+   - Long-lived Access Token (generated from Home Assistant under Profile > Security)
 3. Create rooms and assign entities
 4. Customize entity ordering and grouping
 
