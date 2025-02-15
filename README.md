@@ -29,6 +29,9 @@ Project Friday is a modern, simplified dashboard interface designed for Tablet d
 
 ### 🏠 Supported Devices
 
+#### Scripts
+- Toggle scripts
+
 #### Lights
 - Toggle on/off
 - Brightness control
@@ -45,6 +48,11 @@ Project Friday is a modern, simplified dashboard interface designed for Tablet d
 - Real-time value display
 - Unit display
 - Automatic updates
+
+#### Switches
+- Toggle on/off
+- Real-time state updates
+- Visual feedback
 
 ## Getting Started
 ⚠️ **Warning**: Project Friday only works with Home Assistant Cloud connected (Nabu Casa) instances using your Nabu Casa remote URL. Currently resolving issue with LOCAL IP address setup.
@@ -106,21 +114,6 @@ The application will be available at:
 4. Customize entity ordering and grouping
 
 ## Development
-
-### Project Structure
-```
-project-friday/
-├── app.py              # Main application file
-├── config.py           # Configuration settings
-├── modules/            # Core modules
-│   ├── ha_client.py   # Home Assistant client
-│   └── models.py      # Database models
-├── static/            # Static assets
-│   ├── css/          # Stylesheets
-│   ├── js/           # JavaScript files
-│   └── images/       # Images and icons
-└── templates/        # HTML templates
-```
 
 ### Key Components
 
