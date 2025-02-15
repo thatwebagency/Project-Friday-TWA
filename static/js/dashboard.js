@@ -231,6 +231,40 @@ function handleInitialStates(states) {
         return;
     }
     
+    // Create a Set of all entity IDs from HA to check for missing entities
+    const haEntityIds = new Set(states.map(state => state.entity_id));
+    
+    // Check for entities that exist in our tracking but not in HA
+    const missingEntities = Object.keys(trackedEntities).filter(entityId => !haEntityIds.has(entityId));
+    
+    // If we found missing entities, send them to backend for removal
+    if (missingEntities.length > 0) {
+        console.log('Found missing entities:', missingEntities);
+        fetch('/api/entities/remove', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ entities: missingEntities })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Remove missing entities from our local tracking
+                missingEntities.forEach(entityId => {
+                    delete trackedEntities[entityId];
+                });
+                // Reload the current room to reflect changes
+                const activeRoom = document.querySelector('.room-tab.active');
+                if (activeRoom) {
+                    displayRoomDevices(activeRoom.dataset.roomId);
+                }
+            }
+        })
+        .catch(error => console.error('Error removing missing entities:', error));
+    }
+    
+    // Update states for existing entities
     states.forEach(state => {
         if (state && trackedEntities[state.entity_id]) {
             entityStates[state.entity_id] = state;

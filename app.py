@@ -571,6 +571,36 @@ def reorder_room_entities(room_id):
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
 
+@app.route("/api/entities/remove", methods=['POST'])
+def remove_missing_entities():
+    try:
+        data = request.json
+        missing_entities = data.get('entities', [])
+        
+        if not missing_entities:
+            return jsonify({'success': True, 'message': 'No entities to remove'})
+        
+        # Remove the entities from the database
+        for entity_id in missing_entities:
+            entity = Entity.query.filter_by(entity_id=entity_id).first()
+            if entity:
+                # Remove all room associations first
+                entity.rooms = []
+                db.session.delete(entity)
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': f'Removed {len(missing_entities)} missing entities',
+            'removed_entities': missing_entities
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error removing missing entities: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
 if __name__ == "__main__":
     with app.app_context():
         db.create_all()
