@@ -261,13 +261,16 @@ async function loadRooms() {
 
         // Initialize sorting
         initRoomSorting();
+
+        // Add input event listener for room name changes
+        initializeRoomInputs();
     } catch (error) {
         console.error('Error loading rooms:', error);
     }
 }
 
-// Update the addRoom function to include drag handle
-function addRoom() {
+// Update the addRoom function to save automatically
+async function addRoom() {
     const roomList = document.getElementById('roomList');
     const roomEntries = roomList.querySelectorAll('.room-entry');
     
@@ -304,10 +307,142 @@ function addRoom() {
         addRoomButton.style.display = 'none';
     }
     
-    // Focus the new input
-    newRoom.querySelector('input').focus();
+    // Focus the new input and add blur event for auto-save
+    const input = newRoom.querySelector('input');
+    input.focus();
+    input.addEventListener('blur', saveRooms);
 }
 
+// Add new function to auto-save rooms
+async function saveRooms() {
+    const formData = new FormData(document.getElementById('roomConfig'));
+    const rooms = Array.from(formData.getAll('rooms[]'));
+    
+    try {
+        const response = await fetch('/api/setup/rooms', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ rooms })
+        });
+        
+        if (response.ok) {
+            showToast('Room configuration saved', 'success');
+        } else {
+            showToast('Failed to save room configuration', 'error');
+        }
+    } catch (error) {
+        showToast('Error saving room configuration', 'error');
+        console.error('Error:', error);
+    }
+}
+
+// Add this at the top with other initialization code
+function showToast(message, type = 'info') {
+    const container = document.querySelector('.toast-container');
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    
+    // Set icon based on type
+    let icon = 'info-circle';
+    if (type === 'success') icon = 'check-circle';
+    if (type === 'error') icon = 'exclamation-circle';
+    
+    toast.innerHTML = `
+        <i class="fas fa-${icon}"></i>
+        <span>${message}</span>
+    `;
+    
+    container.appendChild(toast);
+    
+    // Remove toast after 3 seconds
+    setTimeout(() => {
+        toast.classList.add('fade-out');
+        setTimeout(() => {
+            toast.remove();
+        }, 300);
+    }, 3000);
+}
+
+// Update the testAndSaveConnection function
+async function testAndSaveConnection() {
+    const haUrlInput = document.querySelector('input[name="ha_url"]');
+    const accessTokenInput = document.querySelector('input[name="access_token"]');
+    const saveButton = document.getElementById('nextButton');
+    
+    // Disable the save button while testing
+    saveButton.disabled = true;
+    
+    showToast('Testing connection...', 'info');
+    
+    try {
+        const response = await fetch('/api/settings/ha', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                ha_url: haUrlInput.value,
+                access_token: accessTokenInput.value
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            showToast('Connection successful! Settings saved.', 'success');
+        } else {
+            showToast(data.error || 'Connection failed', 'error');
+            saveButton.disabled = false;
+        }
+    } catch (error) {
+        showToast('Connection failed. Please check your settings.', 'error');
+        saveButton.disabled = false;
+    }
+}
+
+// Update saveEntityConfig function
+async function saveEntityConfig() {
+    try {
+        // Convert roomEntities Map to array format expected by backend
+        const entities = [];
+        if (roomEntities && roomEntities.size > 0) {
+            for (const [roomId, roomEntityList] of roomEntities) {
+                roomEntityList.forEach(entity => {
+                    const existingEntity = entities.find(e => e.entity_id === entity.entity_id);
+                    if (existingEntity) {
+                        existingEntity.rooms.push(roomId);
+                    } else {
+                        entities.push({
+                            ...entity,
+                            rooms: [roomId]
+                        });
+                    }
+                });
+            }
+        }
+        
+        const response = await fetch('/api/setup/entities', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ entities })
+        });
+        
+        if (response.ok) {
+            showToast('Configuration saved successfully', 'success');
+        } else {
+            showToast('Failed to save entity configuration', 'error');
+        }
+    } catch (error) {
+        showToast('Error saving entity configuration', 'error');
+        console.error('Error:', error);
+    }
+}
+
+// Update deleteRoom function
 async function deleteRoom(roomId, button) {
     try {
         const response = await fetch(`/api/rooms/${roomId}`, {
@@ -323,19 +458,31 @@ async function deleteRoom(roomId, button) {
             if (roomList.children.length === 0) {
                 addRoom();
             }
+            showToast('Room deleted successfully', 'success');
         }
     } catch (error) {
-        console.error('Error deleting room:', error);
+        showToast('Error deleting room', 'error');
+        console.error('Error:', error);
     }
 }
 
 async function loadEntitiesStep() {
+    const roomEntityList = document.getElementById('roomEntityList');
+    
+    // Show loading state
+    roomEntityList.innerHTML = `
+        <div class="loading-container">
+            <div class="loading-spinner"></div>
+            <div class="loading-text">Loading room entities...</div>
+        </div>
+    `;
+    
     try {
         // Load rooms, entities, and tracked entities
         const [roomsResponse, entitiesResponse, trackedResponse] = await Promise.all([
             fetch('/api/rooms'),
             fetch('/api/ha/entities'),
-            fetch('/api/entities/tracked')  // Add this new request
+            fetch('/api/entities/tracked')
         ]);
         
         const rooms = await roomsResponse.json();
@@ -362,7 +509,6 @@ async function loadEntitiesStep() {
         });
         
         // Render rooms
-        const roomEntityList = document.getElementById('roomEntityList');
         roomEntityList.innerHTML = rooms.map(room => `
             <div class="room-entity-section" data-room-id="${room.id}">
                 <div class="room-header" onclick="toggleRoomExpand(${room.id})">
@@ -395,6 +541,15 @@ async function loadEntitiesStep() {
         updateSaveButtonState();
         
     } catch (error) {
+        // Show error state
+        roomEntityList.innerHTML = `
+            <div class="loading-container">
+                <div class="loading-text" style="color: #dc3545;">
+                    <i class="fas fa-exclamation-circle"></i>
+                    Error loading entities. Please try again.
+                </div>
+            </div>
+        `;
         console.error('Error loading entities step:', error);
     }
 }
@@ -485,7 +640,14 @@ function updateEntityOrder(roomId, groupType) {
         body: JSON.stringify({
             entityIds: entityIds
         })
-    }).catch(error => console.error('Error saving entity order:', error));
+    })
+    .then(() => {
+        showToast('Entity order updated', 'success');
+    })
+    .catch(error => {
+        console.error('Error saving entity order:', error);
+        showToast('Failed to update entity order', 'error');
+    });
 
     // Update local state
     const currentEntities = roomEntities.get(roomId) || [];
@@ -669,13 +831,13 @@ async function saveEntityConfig() {
         });
         
         if (response.ok) {
-            // Show success message instead of redirecting
-            alert('Configuration saved successfully');
+            showToast('Configuration saved successfully', 'success');
         } else {
-            console.error('Failed to save entity configuration');
+            showToast('Failed to save entity configuration', 'error');
         }
     } catch (error) {
-        console.error('Error saving entity configuration:', error);
+        showToast('Error saving entity configuration', 'error');
+        console.error('Error:', error);
     }
 }
 
@@ -711,45 +873,9 @@ function getEntityIcon(domain) {
     return iconMap[domain] || iconMap.default;
 }
 
-// Add this function to handle the connection test and save
-async function testAndSaveConnection() {
-    const haUrlInput = document.querySelector('input[name="ha_url"]');
-    const accessTokenInput = document.querySelector('input[name="access_token"]');
-    const statusDiv = document.getElementById('connectionStatus');
-    const saveButton = document.getElementById('nextButton');
-    
-    // Disable the save button while testing
-    saveButton.disabled = true;
-    
-    // Show testing status
-    statusDiv.innerHTML = '<div class="testing"><i class="fas fa-spinner fa-spin"></i> Testing connection...</div>';
-    statusDiv.style.display = 'block';
-    
-    try {
-        const response = await fetch('/api/settings/ha', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                ha_url: haUrlInput.value,
-                access_token: accessTokenInput.value
-            })
-        });
-        
-        const data = await response.json();
-        
-        if (response.ok) {
-            statusDiv.innerHTML = '<div class="success"><i class="fas fa-check-circle"></i> Connection successful! Settings saved.</div>';
-            setTimeout(() => {
-                statusDiv.style.display = 'none';
-            }, 3000);
-        } else {
-            statusDiv.innerHTML = `<div class="error"><i class="fas fa-exclamation-circle"></i> ${data.error || 'Connection failed'}</div>`;
-            saveButton.disabled = false;
-        }
-    } catch (error) {
-        statusDiv.innerHTML = '<div class="error"><i class="fas fa-exclamation-circle"></i> Connection failed. Please check your settings.</div>';
-        saveButton.disabled = false;
-    }
+// Add input event listener for room name changes
+function initializeRoomInputs() {
+    document.querySelectorAll('.room-entry input').forEach(input => {
+        input.addEventListener('blur', saveRooms);
+    });
 }
