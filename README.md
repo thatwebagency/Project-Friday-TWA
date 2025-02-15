@@ -7,6 +7,23 @@ Project Friday is a modern, simplified dashboard interface designed for Tablet d
 ## Project Friday Dashboard
 ![Project Friday Dashboard](https://community-assets.home-assistant.io/original/4X/2/7/1/271bb78a8bea25699579afc01015a3f43c5a7081.gif)
 
+### 🔧 Quick Links
+
+- [Core Features](#core-features)
+- [Clean Installation](#clean-installation)
+- [Upgrading](#upgrading)
+- [Contributing](#contributing)
+
+## New version available
+
+Follow Clean Install, if you do not already have Project Friday installed. Follow Upgrading if you already have Project Friday installed.
+
+- **Version 1.0.1**
+  - Added support for switches
+  - Added support for scripts
+  - Added support for removing entities no longer available in Home Assistant
+  - Added new initial run functions to create .env file from CLI
+
 ## Features
 
 ### 🎯 Core Features
@@ -58,13 +75,12 @@ Project Friday is a modern, simplified dashboard interface designed for Tablet d
 ⚠️ **Warning**: Project Friday only works with Home Assistant Cloud connected (Nabu Casa) instances using your Nabu Casa remote URL. Currently resolving issue with LOCAL IP address setup.
 ⚠️ **Warning**: Project Friday is currently in active development. While functional, you may encounter bugs or incomplete features. Please report any issues on GitHub.
 
-
 ### Prerequisites
 - Python 3.8 or higher
 - Home Assistant instance (Nabu Casa)
 - Weather API key from [weatherapi.com](https://www.weatherapi.com)
 
-### Installation
+### Clean Installation
 
 1. **Clone Project**
 ```bash
@@ -87,18 +103,18 @@ pip install -r requirements.txt
 ```bash
 flask db init
 ```
-
-5. **Configure Environment**
-Create a `.env` file in the root directory:
-```env
-WEATHER_API_KEY=your_weather_api_key
-LOCATION=your_location  # e.g., "London" or "51.5074,-0.1278"
-```
-
-6. **Run Application**
+5. **Run Application**
 ```bash
 python app.py
 ```
+
+6. **Configure Environment**
+When you first run the application, you'll be prompted via command line to enter:
+- Weather API key from [weatherapi.com](https://www.weatherapi.com)
+- Your location (city name or coordinates)
+
+These will be automatically saved to a `.env` file.
+
 
 The application will be available at:
 - Local: `http://localhost:8165`
@@ -112,6 +128,25 @@ The application will be available at:
    - Long-lived Access Token (generated from Home Assistant under Profile > Security)
 3. Create rooms and assign entities
 4. Customize entity ordering and grouping
+
+## Upgrading
+
+### Automatic Updates
+Updating Project Friday is simple, follow these steps:
+
+```bash
+git pull
+flask db migrate
+python3 app.py
+```
+
+### Version History
+- v1.1.0
+  - Added automatic update checking
+  - Improved installation process
+  - Added database backup before upgrades
+- v1.0.0
+  - Initial release
 
 ## Development
 

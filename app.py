@@ -602,6 +602,41 @@ def remove_missing_entities():
         return jsonify({'error': str(e)}), 500
 
 if __name__ == "__main__":
+    # Check if .env file exists and has required variables
+    if not os.path.exists('.env') or not all([
+        os.getenv('WEATHER_API_KEY'),
+        os.getenv('LOCATION')
+    ]):
+        print("\n=== Project Friday Environment Setup ===")
+        print("You'll need a Weather API key from weatherapi.com")
+        
+        # Get Weather API key
+        while True:
+            weather_api_key = input("\nEnter your Weather API key: ").strip()
+            
+            # Validate the API key
+            test_url = f"http://api.weatherapi.com/v1/current.json?key={weather_api_key}&q=London"
+            try:
+                response = requests.get(test_url)
+                if response.status_code == 200:
+                    break
+                print("Invalid API key. Please try again.")
+            except:
+                print("Error validating API key. Please try again.")
+        
+        # Get location
+        location = input("\nEnter your location (city name or coordinates): ").strip()
+        
+        # Create .env file
+        with open('.env', 'w') as f:
+            f.write(f'WEATHER_API_KEY={weather_api_key}\n')
+            f.write(f'LOCATION={location}\n')
+        
+        print("\nEnvironment configuration saved successfully!")
+        
+        # Reload environment variables
+        load_dotenv(override=True)
+    
     with app.app_context():
         db.create_all()
     app.run(host='0.0.0.0', port=8165, debug=True)
