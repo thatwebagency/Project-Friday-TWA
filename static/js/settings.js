@@ -566,7 +566,7 @@ function toggleRoomExpand(roomId) {
 function renderRoomEntities(roomId) {
     const entities = roomEntities.get(roomId) || [];
     const container = document.getElementById(`entity-chips-${roomId}`);
-
+    
     if (entities.length === 0) {
         container.innerHTML = `
             <div class="empty-state">
@@ -581,30 +581,46 @@ function renderRoomEntities(roomId) {
     const groups = {
         climate: entities.filter(e => e.domain === 'climate'),
         lights: entities.filter(e => e.domain === 'light'),
-        sensors: entities.filter(e => ['sensor', 'binary_sensor'].includes(e.domain)),
-        other: entities.filter(e => !['climate', 'light', 'sensor', 'binary_sensor'].includes(e.domain))
+        switches: entities.filter(e => e.domain === 'switch'),  // Add switches group
+        sensors: entities.filter(e => e.domain === 'sensor'),
+        binary_sensors: entities.filter(e => e.domain === 'binary_sensor'),
+        other: entities.filter(e => !['climate', 'light', 'switch', 'sensor', 'binary_sensor'].includes(e.domain))
     };
 
     container.innerHTML = Object.entries(groups)
         .filter(([_, groupEntities]) => groupEntities.length > 0)
-        .map(([groupType, groupEntities]) => `
-            <div class="entity-group" data-group="${groupType}">
-                <div class="group-header">
-                    <span>${groupType.charAt(0).toUpperCase() + groupType.slice(1)}</span>
-                    ${groupType !== 'climate' ? '<div class="group-drag-handle">⋮⋮</div>' : ''}
+        .map(([groupType, groupEntities]) => {
+            // Get display name for the group
+            const groupDisplayName = {
+                climate: 'Climate',
+                lights: 'Lights',
+                switches: 'Switches',
+                sensors: 'Sensors',
+                binary_sensors: 'Binary Sensors',
+                other: 'Other'
+            }[groupType];
+
+            return `
+                <div class="entity-group" data-group="${groupType}">
+                    <div class="group-header">
+                        <span>${groupDisplayName}</span>
+                        ${groupType !== 'climate' ? '<div class="group-drag-handle">⋮⋮</div>' : ''}
+                    </div>
+                    <div class="entity-chips-container sortable-group" data-room="${roomId}" data-type="${groupType}">
+                        ${groupEntities.map(entity => `
+                            <div class="entity-chip${groupType === 'climate' ? ' climate-chip' : ''}" 
+                                 data-entity-id="${entity.entity_id}" 
+                                 data-domain="${entity.domain}">
+                                ${groupType !== 'climate' ? '<div class="entity-drag-handle">⋮</div>' : ''}
+                                <i class="fa-solid fa-${getEntityIcon(entity.domain)}"></i>
+                                ${entity.name}
+                                <span class="remove-entity" onclick="removeEntityFromRoom(${roomId}, '${entity.entity_id}')">&times;</span>
+                            </div>
+                        `).join('')}
+                    </div>
                 </div>
-                <div class="entity-chips-container sortable-group" data-room="${roomId}" data-type="${groupType}">
-                    ${groupEntities.map(entity => `
-                        <div class="entity-chip${groupType === 'climate' ? ' climate-chip' : ''}" data-entity-id="${entity.entity_id}">
-                            ${groupType !== 'climate' ? '<div class="entity-drag-handle">⋮</div>' : ''}
-                            <i class="fa-solid fa-${getEntityIcon(entity.domain)}"></i>
-                            ${entity.name}
-                            <span class="remove-entity" onclick="removeEntityFromRoom(${roomId}, '${entity.entity_id}')">&times;</span>
-                        </div>
-                    `).join('')}
-                </div>
-            </div>
-        `).join('');
+            `;
+        }).join('');
 
     // Initialize sorting for each group (except climate)
     container.querySelectorAll('.sortable-group').forEach(group => {
@@ -614,7 +630,7 @@ function renderRoomEntities(roomId) {
                 handle: '.entity-drag-handle',
                 group: `entities-${group.dataset.type}`,
                 onEnd: function(evt) {
-                    const roomId = parseInt(evt.to.dataset.room);
+                    const roomId = evt.to.dataset.room;
                     const groupType = evt.to.dataset.type;
                     updateEntityOrder(roomId, groupType);
                 }
@@ -711,12 +727,33 @@ function showEntityModal(roomId, roomName) {
     const roomEntityIds = new Set((roomEntities.get(roomId) || []).map(e => e.entity_id));
     const hasClimate = (roomEntities.get(roomId) || []).some(e => e.domain === 'climate');
     
+    // Group entities by domain for better organization
+    function groupEntitiesByDomain(entities) {
+        const groups = {
+            climate: [],
+            light: [],
+            switch: [],
+            sensor: [],
+            binary_sensor: []
+        };
+        
+        entities.forEach(entity => {
+            if (groups.hasOwnProperty(entity.domain)) {
+                groups[entity.domain].push(entity);
+            }
+        });
+        
+        return groups;
+    }
+
     // Render available entities
     function renderEntities(searchTerm = '') {
         const filteredEntities = availableEntities.filter(entity => {
+            // Skip if entity is already in room
             if (roomEntityIds.has(entity.entity_id)) return false;
-            // Prevent adding climate if one already exists
+            // Skip climate if one already exists
             if (entity.domain === 'climate' && hasClimate) return false;
+            
             if (searchTerm) {
                 const searchLower = searchTerm.toLowerCase();
                 return entity.name.toLowerCase().includes(searchLower) || 
@@ -724,21 +761,29 @@ function showEntityModal(roomId, roomName) {
             }
             return true;
         });
+
+        // Group filtered entities by domain
+        const groupedEntities = groupEntitiesByDomain(filteredEntities);
         
-        modalEntityList.innerHTML = `
-            <div class="modal-entity-grid">
-                ${filteredEntities.map(entity => `
-                    <div class="entity-card" data-entity-id="${entity.entity_id}">
-                        <div class="entity-icon">
-                            <i class="fa-solid fa-${getEntityIcon(entity.domain)}"></i>
-                        </div>
-                        <div class="entity-friendly-name">${entity.name}</div>
-                        <div class="entity-full-name">${entity.entity_id}</div>
-                        <div class="entity-checkbox"></div>
+        modalEntityList.innerHTML = Object.entries(groupedEntities)
+            .filter(([domain, entities]) => entities.length > 0)
+            .map(([domain, entities]) => `
+                <div class="entity-section">
+                    <h5 class="entity-section-header">${domain.charAt(0).toUpperCase() + domain.slice(1)}s</h5>
+                    <div class="modal-entity-grid">
+                        ${entities.map(entity => `
+                            <div class="entity-card" data-entity-id="${entity.entity_id}" data-domain="${entity.domain}">
+                                <div class="entity-icon">
+                                    <i class="fa-solid fa-${getEntityIcon(entity.domain)}"></i>
+                                </div>
+                                <div class="entity-friendly-name">${entity.name}</div>
+                                <div class="entity-full-name">${entity.entity_id}</div>
+                                <div class="entity-checkbox"></div>
+                            </div>
+                        `).join('')}
                     </div>
-                `).join('')}
-            </div>
-        `;
+                </div>
+            `).join('');
 
         // Add click handlers for cards
         modalEntityList.querySelectorAll('.entity-card').forEach(card => {

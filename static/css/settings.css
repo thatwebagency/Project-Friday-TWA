@@ -280,3 +280,68 @@ a.back-to-dashboard {
     color: #666;
     font-size: 14px;
 }
+
+/* Add specific styling for switch chips */
+.entity-chip[data-domain="switch"] {
+    background: #e8f5e9;  /* Light green background */
+    color: #2e7d32;
+}
+
+/* Add styling for entity sections in modal */
+.entity-section {
+    margin-bottom: 20px;
+}
+
+.entity-section-header {
+    font-size: 14px;
+    color: #666;
+    margin-bottom: 10px;
+    padding-bottom: 5px;
+    border-bottom: 1px solid #eee;
+}
+
+.modal-entity-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 15px;
+    margin-bottom: 15px;
+}
+
+/* Add/update entity card styles */
+.entity-card {
+    background: #fff;
+    border: 1px solid #eee;
+    border-radius: 10px;
+    padding: 15px;
+    cursor: pointer;
+    position: relative;
+    transition: all 0.2s ease;
+}
+
+.entity-card {
+    max-width: 150px;
+}
+
+.entity-card:hover {
+    background: #f8f9fa;
+}
+
+.entity-card.selected {
+    background: #f0f7ff;
+    border-color: #007bff;
+}
+
+.entity-card .entity-icon {
+    color: #666;
+    margin-bottom: 8px;
+}
+
+.entity-card .entity-friendly-name {
+    font-weight: 500;
+    margin-bottom: 4px;
+}
+
+.entity-card .entity-full-name {
+    font-size: 12px;
+    color: #666;
+}

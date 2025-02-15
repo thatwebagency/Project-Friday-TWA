@@ -4,6 +4,7 @@ let trackedEntities = {};
 let entityStates = {};
 let messageId = 1;
 let pendingUpdates = new Set();
+let messageHandlers = new Map(); // Store message handlers globally
 
 // Time functions
 function updateTime() {
@@ -285,6 +286,8 @@ function handleStateChange(data) {
             updateClimateDisplay(entityId, newState);
         } else if (entityId.startsWith('sensor.')) {
             updateSensorCard(entityId, newState);
+        } else if (entityId.startsWith('switch.')) {
+            updateSwitchCard(entityId, newState);
         }
     }
     
@@ -313,6 +316,13 @@ function handleStateChange(data) {
                 const fanMode = newState.attributes.fan_mode.charAt(0).toUpperCase() + 
                                newState.attributes.fan_mode.slice(1);
                 message = `${friendlyName} fan set to ${fanMode}`;
+            }
+        } else if (entityId.startsWith('switch.')) {
+            const friendlyName = newState.attributes?.friendly_name || 'Switch';
+            if (newState.state === 'on' && oldState?.state === 'off') {
+                message = `${friendlyName} turned on`;
+            } else if (newState.state === 'off' && oldState?.state === 'on') {
+                message = `${friendlyName} turned off`;
             }
         }
         
@@ -430,9 +440,10 @@ function displayRoomDevices(roomId) {
     const categories = {
         sensors: devices.filter(d => d.type === 'sensor').sort((a, b) => a.order - b.order),
         lights: devices.filter(d => d.type === 'light').sort((a, b) => a.order - b.order),
+        switches: devices.filter(d => d.type === 'switch').sort((a, b) => a.order - b.order),
         climate: devices.filter(d => d.type === 'climate').sort((a, b) => a.order - b.order),
-        other: devices.filter(d => d.type !== 'light' && d.type !== 'climate' && d.type !== 'sensor')
-            .sort((a, b) => a.order - b.order),
+        other: devices.filter(d => d.type !== 'light' && d.type !== 'climate' && 
+               d.type !== 'sensor' && d.type !== 'switch').sort((a, b) => a.order - b.order),
     };
     
     // Check if there are any non-climate devices
@@ -441,7 +452,7 @@ function displayRoomDevices(roomId) {
         .some(([_, devices]) => devices.length > 0);
 
     // Define the order of categories
-    const categoryOrder = ['sensors', 'lights', 'other'];
+    const categoryOrder = ['sensors', 'lights', 'switches', 'other'];
 
     // Generate sections HTML only if there are non-climate devices
     const sectionsHTML = hasNonClimateDevices ? 
@@ -461,12 +472,17 @@ function displayRoomDevices(roomId) {
                                 
                                 return `
                                     <div class="device-card ${device.type === 'light' ? 'light-card' : ''} 
-                                                    ${device.type === 'sensor' ? 'sensor-card' : ''}" 
+                                                    ${device.type === 'sensor' ? 'sensor-card' : ''}
+                                                    ${device.type === 'switch' ? 'switch-card' : ''}" 
                                          data-device-id="${device.id}"
                                          data-state="${currentState.state || 'unknown'}"
-                                         ${device.type === 'light' ? 'data-action="toggle"' : ''}>
+                                         ${(device.type === 'light' || device.type === 'switch') ? 'data-action="toggle"' : ''}>
                                         <div class="device-controls">
                                             ${device.type === 'light' ? getLightControls({
+                                                ...device,
+                                                state: currentState.state,
+                                                attributes: currentState.attributes
+                                            }) : device.type === 'switch' ? getSwitchControls({
                                                 ...device,
                                                 state: currentState.state,
                                                 attributes: currentState.attributes
@@ -581,8 +597,24 @@ function updateDeviceCard(card, state) {
     // Update card state attribute
     card.setAttribute('data-state', state.state);
 
+    // Remove existing unavailable overlay if it exists
+    const existingOverlay = card.querySelector('.unavailable-overlay');
+    if (existingOverlay) {
+        existingOverlay.remove();
+    }
+
+    // Add unavailable overlay if state is unavailable
+    if (state.state === 'unavailable') {
+        const overlay = document.createElement('div');
+        overlay.className = 'unavailable-overlay';
+        overlay.innerHTML = '<span class="unavailable-message">Device Unavailable</span>';
+        card.appendChild(overlay);
+    }
+
     if (device.type === 'light') {
         controls.innerHTML = getLightControls(device);
+    } else if (device.type === 'switch') {
+        controls.innerHTML = getSwitchControls(device);
     } else {
         controls.innerHTML = getDeviceControls(device);
     }
@@ -609,10 +641,11 @@ function getLightControls(device) {
     const isOn = device.state === 'on';
     const brightness = device.attributes?.brightness || 0;
     const brightnessPercent = Math.round((brightness / 255) * 100);
+    const isUnavailable = device.state === 'unavailable';
     
     return `
         <div class="light-header">
-            <span class="brightness-level">${isOn ? `${brightnessPercent}%` : 'Off'}</span>
+            <span class="brightness-level">${isUnavailable ? 'Unavailable' : isOn ? `${brightnessPercent}%` : 'Off'}</span>
             <div class="toggle-circle" data-action="toggle">
                 <i class="fa-regular fa-lightbulb"></i>
             </div>
@@ -696,25 +729,179 @@ function hideLoader(card) {
     }
 }
 
-async function updateBrightness(entityId, brightness_pct) {
+function handleCommandResponse(messageId, deviceId) {
+    return new Promise((resolve, reject) => {
+        // Clear any existing handler for this messageId
+        if (messageHandlers.has(messageId)) {
+            haSocket.removeEventListener('message', messageHandlers.get(messageId));
+            messageHandlers.delete(messageId);
+        }
+
+        const timeout = setTimeout(() => {
+            // Clean up handler on timeout
+            if (messageHandlers.has(messageId)) {
+                haSocket.removeEventListener('message', messageHandlers.get(messageId));
+                messageHandlers.delete(messageId);
+            }
+            reject(new Error('Command timed out'));
+        }, 10000);
+
+        const messageHandler = (event) => {
+            const message = JSON.parse(event.data);
+            
+            if (message.id === messageId) {
+                clearTimeout(timeout);
+                
+                // Clean up handler after receiving matching message
+                haSocket.removeEventListener('message', messageHandler);
+                messageHandlers.delete(messageId);
+                
+                if (!message.success) {
+                    const errorMessage = message.error?.message || 'Unknown error';
+                    const cleanErrorMessage = errorMessage
+                        .replace(/Request failed due connection error: \d+, message='/, '')
+                        .replace(/', url='.*'$/, '')
+                        .replace(/^Bad Request: /, '');
+                    reject(new Error(cleanErrorMessage));
+                } else {
+                    resolve(message);
+                }
+            }
+        };
+
+        messageHandlers.set(messageId, messageHandler);
+        haSocket.addEventListener('message', messageHandler);
+    });
+}
+
+// Update the toggleDevice function to use error handling
+async function toggleDevice(entityId) {
     if (!haSocket || haSocket.readyState !== WebSocket.OPEN) {
-        console.error('WebSocket not connected');
+        showToast('Not connected to Home Assistant', 5000);
         return;
     }
 
+    const card = document.querySelector(`[data-device-id="${entityId}"]`);
+    if (!card) return;
+
     pendingUpdates.add(entityId);
-    haSocket.send(JSON.stringify({
-        id: getNextMessageId(),
-        type: 'call_service',
-        domain: 'light',
-        service: 'turn_on',
-        target: {
-            entity_id: entityId
-        },
-        service_data: {
-            brightness_pct: parseInt(brightness_pct)
+    const domain = entityId.split('.')[0];
+    const service = entityStates[entityId]?.state === 'on' ? 'turn_off' : 'turn_on';
+    const msgId = getNextMessageId();
+
+    try {
+        haSocket.send(JSON.stringify({
+            id: msgId,
+            type: 'call_service',
+            domain: domain,
+            service: service,
+            target: {
+                entity_id: entityId
+            }
+        }));
+
+        await handleCommandResponse(msgId, entityId);
+    } catch (error) {
+        console.error(`Error toggling device:`, error);
+        showToast(`Failed to toggle device: ${error.message}`, 5000);
+        
+        // Remove loader and pending update
+        const loader = card.querySelector('.card-loader');
+        if (loader) loader.remove();
+        pendingUpdates.delete(entityId);
+    }
+}
+
+// Update updateBrightness function with error handling
+async function updateBrightness(entityId, brightness_pct) {
+    if (!haSocket || haSocket.readyState !== WebSocket.OPEN) {
+        showToast('Not connected to Home Assistant', 5000);
+        return;
+    }
+
+    const card = document.querySelector(`[data-device-id="${entityId}"]`);
+    if (!card) return;
+
+    pendingUpdates.add(entityId);
+    const msgId = getNextMessageId();
+
+    try {
+        haSocket.send(JSON.stringify({
+            id: msgId,
+            type: 'call_service',
+            domain: 'light',
+            service: 'turn_on',
+            target: {
+                entity_id: entityId
+            },
+            service_data: {
+                brightness_pct: parseInt(brightness_pct)
+            }
+        }));
+
+        await handleCommandResponse(msgId, entityId);
+    } catch (error) {
+        console.error('Error updating brightness:', error);
+        showToast(`Failed to update brightness: ${error.message}`, 5000);
+        
+        // Remove loader and pending update
+        const loader = card.querySelector('.card-loader');
+        if (loader) loader.remove();
+        pendingUpdates.delete(entityId);
+    }
+}
+
+// Update updateClimateTemp function with error handling
+async function updateClimateTemp(entityId, temperature) {
+    if (!haSocket || haSocket.readyState !== WebSocket.OPEN) {
+        showToast('Not connected to Home Assistant', 5000);
+        return;
+    }
+
+    const currentState = entityStates[entityId];
+    let hvac_mode = currentState.state;
+    
+    try {
+        // If current mode is 'off', set to cool first
+        if (hvac_mode === 'off') {
+            hvac_mode = 'cool';
+            const modeMsgId = getNextMessageId();
+            
+            haSocket.send(JSON.stringify({
+                id: modeMsgId,
+                type: 'call_service',
+                domain: 'climate',
+                service: 'set_hvac_mode',
+                target: { entity_id: entityId },
+                service_data: { hvac_mode }
+            }));
+
+            await handleCommandResponse(modeMsgId, entityId);
         }
-    }));
+
+        pendingUpdates.add(entityId);
+        const tempMsgId = getNextMessageId();
+
+        haSocket.send(JSON.stringify({
+            id: tempMsgId,
+            type: 'call_service',
+            domain: 'climate',
+            service: 'set_temperature',
+            target: { entity_id: entityId },
+            service_data: { temperature }
+        }));
+
+        await handleCommandResponse(tempMsgId, entityId);
+    } catch (error) {
+        console.error('Error updating temperature:', error);
+        showToast(`Failed to update temperature: ${error.message}`, 5000);
+        
+        // Hide the temperature loader
+        const tempLoader = document.querySelector('.temp-loader');
+        if (tempLoader) tempLoader.classList.remove('show');
+        
+        pendingUpdates.delete(entityId);
+    }
 }
 
 function showBrightnessModal(deviceId) {
@@ -780,27 +967,6 @@ function showBrightnessModal(deviceId) {
     });
 }
 
-async function toggleDevice(entityId) {
-    if (!haSocket || haSocket.readyState !== WebSocket.OPEN) {
-        console.error('WebSocket not connected');
-        return;
-    }
-
-    pendingUpdates.add(entityId);
-    const domain = entityId.split('.')[0];
-    const service = entityStates[entityId]?.state === 'on' ? 'turn_off' : 'turn_on';
-
-    haSocket.send(JSON.stringify({
-        id: getNextMessageId(),
-        type: 'call_service',
-        domain: domain,
-        service: service,
-        target: {
-            entity_id: entityId
-        }
-    }));
-}
-
 function setupClimateControlListeners() {
     // Temperature controls
     document.querySelectorAll('.temp-btn').forEach(btn => {
@@ -864,38 +1030,6 @@ function setupClimateControlListeners() {
             dropdown.classList.remove('show');
         });
     });
-}
-
-function updateClimateTemp(entityId, temperature) {
-    if (!haSocket || haSocket.readyState !== WebSocket.OPEN) return;
-
-    const currentState = entityStates[entityId];
-    let hvac_mode = currentState.state;
-    
-    // If current mode is 'off', set to cool
-    if (hvac_mode === 'off') {
-        hvac_mode = 'cool';
-        
-        // First set the mode
-        haSocket.send(JSON.stringify({
-            id: getNextMessageId(),
-            type: 'call_service',
-            domain: 'climate',
-            service: 'set_hvac_mode',
-            target: { entity_id: entityId },
-            service_data: { hvac_mode }
-        }));
-    }
-
-    pendingUpdates.add(entityId);
-    haSocket.send(JSON.stringify({
-        id: getNextMessageId(),
-        type: 'call_service',
-        domain: 'climate',
-        service: 'set_temperature',
-        target: { entity_id: entityId },
-        service_data: { temperature }
-    }));
 }
 
 function updateClimateMode(entityId, hvac_mode) {
@@ -1165,4 +1299,86 @@ function hideLoader() {
     setTimeout(() => {
         loader.style.display = 'none';
     }, 300);
+}
+
+// Add new function for switch controls
+function getSwitchControls(device) {
+    const isOn = device.state === 'on';
+    const isUnavailable = device.state === 'unavailable';
+    
+    return `
+        <div class="switch-header">
+            <span class="switch-state">${isUnavailable ? 'Unavailable' : isOn ? 'On' : 'Off'}</span>
+            <div class="toggle-circle" data-action="toggle">
+                <i class="fa-solid fa-power-off"></i>
+            </div>
+        </div>
+        <div class="device-name">${device.name}</div>
+    `;
+}
+
+// Update click handler to handle switches
+document.addEventListener('click', async (event) => {
+    const deviceCard = event.target.closest('[data-action="toggle"]');
+    if (!deviceCard) return;
+
+    const deviceId = deviceCard.dataset.deviceId;
+    const isLight = deviceCard.classList.contains('light-card');
+    const isSwitch = deviceCard.classList.contains('switch-card');
+
+    if (isLight || isSwitch) {
+        // Show loader
+        const loader = document.createElement('div');
+        loader.className = 'card-loader';
+        loader.innerHTML = '<div class="loader-spinner"></div>';
+        deviceCard.appendChild(loader);
+
+        // Add to pending updates
+        pendingUpdates.add(deviceId);
+
+        try {
+            if (!haSocket || haSocket.readyState !== WebSocket.OPEN) {
+                throw new Error('WebSocket not connected');
+            }
+
+            const domain = isLight ? 'light' : 'switch';
+            const service = deviceCard.dataset.state === 'on' ? 'turn_off' : 'turn_on';
+            
+            haSocket.send(JSON.stringify({
+                id: getNextMessageId(),
+                type: 'call_service',
+                domain: domain,
+                service: service,
+                target: {
+                    entity_id: deviceId
+                }
+            }));
+        } catch (error) {
+            console.error(`Error toggling ${isLight ? 'light' : 'switch'}:`, error);
+            // Remove loader on error
+            loader.remove();
+            pendingUpdates.delete(deviceId);
+        }
+    }
+});
+
+// Add new function to update switch cards
+function updateSwitchCard(entityId, state) {
+    const card = document.querySelector(`[data-device-id="${entityId}"]`);
+    if (!card) return;
+    
+    // Update card state attribute
+    card.setAttribute('data-state', state.state);
+    
+    // Update switch state text
+    const stateText = card.querySelector('.switch-state');
+    if (stateText) {
+        stateText.textContent = state.state === 'on' ? 'On' : 'Off';
+    }
+    
+    // Hide loader if it exists
+    const loader = card.querySelector('.card-loader');
+    if (loader) {
+        loader.remove();
+    }
 }

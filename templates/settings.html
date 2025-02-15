@@ -155,6 +155,36 @@
         <h3 class="setup-step-title">Manage room entities</h3>
         <div id="roomEntityList">
             <!-- Rooms and their entities will be loaded here -->
+            <div class="entity-group">
+                <div class="group-header">
+                    <span>Climate</span>
+                </div>
+                <!-- Climate entities -->
+            </div>
+            <div class="entity-group">
+                <div class="group-header">
+                    <span>Lights</span>
+                </div>
+                <!-- Light entities -->
+            </div>
+            <div class="entity-group">
+                <div class="group-header">
+                    <span>Switches</span>
+                </div>
+                <!-- Switch entities -->
+            </div>
+            <div class="entity-group">
+                <div class="group-header">
+                    <span>Sensors</span>
+                </div>
+                <!-- Sensor entities -->
+            </div>
+            <div class="entity-group">
+                <div class="group-header">
+                    <span>Binary Sensors</span>
+                </div>
+                <!-- Binary sensor entities -->
+            </div>
         </div>
         <div class="setup-step-buttons">
             <button onclick="saveEntityConfig()" disabled>Save</button>
@@ -174,7 +204,7 @@
                 <input type="text" placeholder="Search entities..." id="entitySearch">
             </div>
             <div id="modalEntityList">
-                <!-- Available entities will be loaded here as cards -->
+                <!-- Entity sections will be dynamically added here -->
             </div>
         </div>
         <div class="modal-footer">
