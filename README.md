@@ -53,7 +53,7 @@ Project Friday is a modern, simplified dashboard interface designed for Tablet d
 
 ### Prerequisites
 - Python 3.8 or higher
-- Home Assistant instance (local or Nabu Casa)
+- Home Assistant instance (Nabu Casa)
 - Weather API key from [weatherapi.com](https://www.weatherapi.com)
 
 ### Installation
