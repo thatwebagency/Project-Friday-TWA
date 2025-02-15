@@ -529,7 +529,7 @@ function displayRoomDevices(roomId) {
                                                     ${device.type === 'switch' ? 'switch-card' : ''}" 
                                          data-device-id="${device.id}"
                                          data-state="${currentState.state || 'unknown'}"
-                                         ${(device.type === 'light' || device.type === 'switch') ? 'data-action="toggle"' : ''}>
+                                         ${(device.type === 'switch') ? 'data-action="toggle"' : ''}>
                                         <div class="device-controls">
                                             ${device.type === 'light' ? getLightControls({
                                                 ...device,
