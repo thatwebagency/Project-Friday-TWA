@@ -1,0 +1,204 @@
+{% extends "base.html" %}
+
+{% block content %}
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+<script src="{{ url_for('static', filename='js/setup.js') }}"></script>
+
+<!-- Add CSS for drag handle -->
+<style>
+    .room-entry {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 10px;
+    }
+    
+    .room-drag-handle {
+        cursor: grab;
+        color: #666;
+        padding: 5px;
+        user-select: none;
+    }
+    
+    .room-drag-handle:active {
+        cursor: grabbing;
+    }
+    
+    .sortable-ghost {
+        opacity: 0.4;
+    }
+    
+    .entity-group {
+        margin-bottom: 20px;
+    }
+    
+    .group-header {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+        font-weight: 600;
+        color: #666;
+    }
+    
+    .group-drag-handle {
+        cursor: grab;
+        margin-left: 8px;
+        color: #999;
+        user-select: none;
+    }
+    
+    .entity-chips-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    
+    .entity-chip {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 10px;
+        background: #f5f5f5;
+        border-radius: 15px;
+        font-size: 14px;
+    }
+    
+    .entity-drag-handle {
+        cursor: grab;
+        color: #999;
+        padding: 0 4px;
+        user-select: none;
+    }
+    
+    .climate-chip {
+        background: #e3f2fd !important;  /* Light blue background */
+        color: #1976d2 !important;
+        cursor: default !important;  /* Indicate it's not draggable */
+    }
+    
+    .climate-chip .entity-drag-handle {
+        display: none;  /* Hide drag handle for climate devices */
+    }
+    
+    .entity-chip i {
+        font-size: 12px;
+    }
+    
+    .remove-entity {
+        cursor: pointer;
+        margin-left: 4px;
+        color: #666;
+    }
+</style>
+
+<div class="setup-fade-wrapper">
+    <div class="welcome-text">
+        <div class="greeting-group">
+            <span class="fade-word" id="hi-text"></span>
+        </div>
+        <div class="welcome-group">
+            <span class="fade-word">Welcome to Friday</span>
+        </div>
+        <div class="start-button-container">
+            <button class="start-button fade-word">Get started</button>
+        </div>
+    </div>
+</div>
+<div class="setup-container">
+    <h2 class="setup-header-text"><span>Hey,</span><span>Let's get setup.</span></h2>
+    <div class="setup-pills">
+        <div class="pill active" data-step="1">1</div>
+        <div class="pill-line"></div>
+        <div class="pill" data-step="2">2</div>
+        <div class="pill-line"></div>
+        <div class="pill" data-step="3">3</div>
+    </div>
+    
+    <div class="setup-step" id="step1">
+        <h3 class="setup-step-title">Connect to Home Assistant</h3>
+        <form id="haConfig">
+            <div class="form-group">
+                <input type="text" 
+                       name="ha_url" 
+                       placeholder="Home Assistant URL (e.g., homeassistant.local:8123)" 
+                       value="{{ ha_config.ha_url if ha_config else '' }}"
+                       required>
+                <small class="help-text">Enter your Home Assistant URL without http:// or trailing slash</small>
+            </div>
+            <div class="form-group">
+                <input type="text" 
+                       name="access_token" 
+                       placeholder="Long-lived Access Token" 
+                       value="{{ ha_config.access_token if ha_config else '' }}"
+                       required>
+                <small class="help-text">Found in your Home Assistant Profile → Long-Lived Access Tokens</small>
+            </div>
+            <div class="connection-status" id="connectionStatus"></div>
+            <div class="setup-step-buttons">
+                <button type="button" id="nextButton">Next</button>
+            </div>
+        </form>
+    </div>
+    
+    <div class="setup-step" id="step2" style="display: none;">
+        <h3 class="setup-step-title">Create your room(s)</h3>
+        <form id="roomConfig">
+            <div id="roomList">
+                <!-- Rooms will be loaded dynamically -->
+            </div>
+            <button type="button" class="add-room" onclick="addRoom()">Add Room</button>
+            <div class="setup-step-buttons">
+                <button type="button" class="back-button" onclick="goToStep(1)">Back</button>
+                <button type="button" id="step2Next">Next</button>
+            </div>
+        </form>
+    </div>
+    
+    <div class="setup-step" id="step3" style="display: none;">
+        <h3 class="setup-step-title">Manage room entities</h3>
+        <div id="roomEntityList">
+            <!-- Rooms and their entities will be loaded here -->
+        </div>
+        <div class="setup-step-buttons">
+            <button type="button" class="back-button" onclick="goToStep(2)">Back</button>
+            <button onclick="saveEntityConfig()" disabled>Complete Setup</button>
+        </div>
+    </div>
+</div>
+
+<!-- Entity Selection Modal -->
+<div id="entityModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h4>Add Entities to <span id="modalRoomName"></span></h4>
+            <button class="modal-close">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="entity-search">
+                <input type="text" placeholder="Search entities..." id="entitySearch">
+            </div>
+            <div id="modalEntityList">
+                <!-- Available entities will be loaded here as cards -->
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="modal-cancel">Cancel</button>
+            <button class="modal-save">Add Selected</button>
+        </div>
+    </div>
+</div>
+
+<!-- Add this before the closing </div> of setup-container -->
+<div id="setupCompleteModal" class="modal setup-complete-modal">
+    <div class="modal-content setup-complete-content">
+        <div class="configuring-state">
+            <h3>Configuring Friday...</h3>
+            <div class="loader"></div>
+        </div>
+        <div class="complete-state">
+            <h3>Setup Complete</h3>
+            <p>Taking you to your dashboard now</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

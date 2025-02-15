@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+
+{% block content %}
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+<script src="{{ url_for('static', filename='js/settings.js') }}"></script>
+
+<!-- Add CSS for drag handle -->
+<style>
+    .room-entry {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 10px;
+    }
+    
+    .room-drag-handle {
+        cursor: grab;
+        color: #666;
+        padding: 5px;
+        user-select: none;
+    }
+    
+    .room-drag-handle:active {
+        cursor: grabbing;
+    }
+    
+    .sortable-ghost {
+        opacity: 0.4;
+    }
+    
+    .entity-group {
+        margin-bottom: 20px;
+    }
+    
+    .group-header {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+        font-weight: 600;
+        color: #666;
+    }
+    
+    .group-drag-handle {
+        cursor: grab;
+        margin-left: 8px;
+        color: #999;
+        user-select: none;
+    }
+    
+    .entity-chips-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    
+    .entity-chip {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 10px;
+        background: #f5f5f5;
+        border-radius: 15px;
+        font-size: 14px;
+    }
+    
+    .entity-drag-handle {
+        cursor: grab;
+        color: #999;
+        padding: 0 4px;
+        user-select: none;
+    }
+    
+    .climate-chip {
+        background: #e3f2fd !important;  /* Light blue background */
+        color: #1976d2 !important;
+        cursor: default !important;  /* Indicate it's not draggable */
+    }
+    
+    .climate-chip .entity-drag-handle {
+        display: none;  /* Hide drag handle for climate devices */
+    }
+    
+    .entity-chip i {
+        font-size: 12px;
+    }
+    
+    .remove-entity {
+        cursor: pointer;
+        margin-left: 4px;
+        color: #666;
+    }
+</style>
+
+<div class="setup-container">
+    <h2 class="setup-header-text">Configure Friday</h2>
+    <div class="settings-tabs">
+        <button class="tab-button active" data-tab="connection">Connection</button>
+        <button class="tab-button" data-tab="rooms">Rooms</button>
+        <button class="tab-button" data-tab="entities">Entities</button>
+    </div>
+    
+    <div class="tab-content" id="connection-tab">
+        <h3 class="setup-step-title">Connect to Home Assistant</h3>
+        <form id="haConfig">
+            <div class="form-group">
+                <input type="text" 
+                       name="ha_url" 
+                       placeholder="Home Assistant URL (e.g., homeassistant.local:8123)" 
+                       value="{{ ha_config.ha_url if ha_config else '' }}"
+                       required>
+                <small class="help-text">Enter your Home Assistant URL without http:// or trailing slash</small>
+            </div>
+            <div class="form-group">
+                <input type="text" 
+                       name="access_token" 
+                       placeholder="Long-lived Access Token" 
+                       value="{{ ha_config.access_token if ha_config else '' }}"
+                       required>
+                <small class="help-text">Found in your Home Assistant Profile → Long-Lived Access Tokens</small>
+            </div>
+            <div class="connection-status" id="connectionStatus"></div>
+            <div class="setup-step-buttons">
+                <button type="button" id="nextButton">Test & Save</button>
+            </div>
+        </form>
+    </div>
+    
+    <div class="tab-content" id="rooms-tab">
+        <h3 class="setup-step-title">Create your room(s)</h3>
+        <form id="roomConfig">
+            <div id="roomList">
+                <!-- Rooms will be loaded dynamically -->
+            </div>
+            <button type="button" class="add-room" onclick="addRoom()">Add Room</button>
+            <div class="setup-step-buttons">
+                <button type="button" id="step2Next">Save</button>
+            </div>
+        </form>
+    </div>
+    
+    <div class="tab-content" id="entities-tab">
+        <h3 class="setup-step-title">Manage room entities</h3>
+        <div id="roomEntityList">
+            <!-- Rooms and their entities will be loaded here -->
+        </div>
+        <div class="setup-step-buttons">
+            <button onclick="saveEntityConfig()" disabled>Save</button>
+        </div>
+    </div>
+</div>
+
+<!-- Entity Selection Modal -->
+<div id="entityModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h4>Add Entities to <span id="modalRoomName"></span></h4>
+            <button class="modal-close">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="entity-search">
+                <input type="text" placeholder="Search entities..." id="entitySearch">
+            </div>
+            <div id="modalEntityList">
+                <!-- Available entities will be loaded here as cards -->
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="modal-cancel">Cancel</button>
+            <button class="modal-save">Add Selected</button>
+        </div>
+    </div>
+</div>
+
+<!-- Setup Complete Modal -->
+<div id="setupCompleteModal" class="modal setup-complete-modal">
+    <div class="modal-content setup-complete-content">
+        <div class="configuring-state">
+            <h3>Configuring Friday...</h3>
+            <div class="loader"></div>
+        </div>
+        <div class="complete-state">
+            <h3>Setup Complete</h3>
+            <p>Taking you to your dashboard now</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

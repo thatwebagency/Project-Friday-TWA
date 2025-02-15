@@ -1,0 +1,135 @@
+.settings-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.settings-header {
+    margin-bottom: 30px;
+    font-size: 24px;
+    font-weight: 600;
+}
+
+.settings-tabs {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 30px;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 10px;
+}
+
+.tab-button {
+    padding: 10px 20px;
+    background: none;
+    border: none;
+    color: #666;
+    font-size: 16px;
+    cursor: pointer;
+    position: relative;
+    transition: color 0.3s;
+}
+
+.tab-button:hover {
+    color: #1a73e8;
+}
+
+.tab-button.active {
+    color: #1a73e8;
+}
+
+.tab-button.active::after {
+    content: '';
+    position: absolute;
+    bottom: -11px;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background: #1a73e8;
+}
+
+.tab-content {
+    display: none;
+}
+
+#connection-tab {
+    display: block;
+}
+
+/* Form Styles */
+.form-group {
+    margin-bottom: 20px;
+}
+
+input[type="text"] {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 14px;
+}
+
+.help-text {
+    display: block;
+    margin-top: 5px;
+    color: #666;
+    font-size: 12px;
+}
+
+button {
+    padding: 10px 20px;
+    background: #1a73e8;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+button:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+}
+
+/* Keep existing styles for room entries, entity chips, etc. */
+
+/* Remove pill styles since we're using tabs */
+.setup-pills,
+.pill-line {
+    display: none;
+}
+
+/* Add initial state for first tab */
+#connection-tab.active {
+    display: block !important;
+}
+
+/* Add these styles for the connection status */
+.connection-status {
+    display: none;
+    margin: 15px 0;
+    padding: 12px;
+    border-radius: 8px;
+    background: #f8f9fa;
+}
+
+.connection-status .testing {
+    color: #666;
+}
+
+.connection-status .success {
+    color: #28a745;
+}
+
+.connection-status .error {
+    color: #dc3545;
+}
+
+.connection-status i {
+    margin-right: 8px;
+}
+
+/* Update button styles */
+#nextButton:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+}
