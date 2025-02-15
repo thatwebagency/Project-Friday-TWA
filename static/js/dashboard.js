@@ -276,6 +276,18 @@ function handleStateChange(data) {
     // Update our local state
     entityStates[entityId] = newState;
     
+    // Find and update the device card
+    const deviceCard = document.querySelector(`[data-device-id="${entityId}"]`);
+    if (deviceCard) {
+        if (entityId.startsWith('light.')) {
+            updateLightCard(entityId, newState);
+        } else if (entityId.startsWith('climate.')) {
+            updateClimateDisplay(entityId, newState);
+        } else if (entityId.startsWith('sensor.')) {
+            updateSensorCard(entityId, newState);
+        }
+    }
+    
     // Only show notification if this entity was being updated
     if (pendingUpdates.has(entityId)) {
         // Generate appropriate notification message
@@ -312,18 +324,6 @@ function handleStateChange(data) {
         // Remove entity from pending updates
         pendingUpdates.delete(entityId);
     }
-    
-    // Always update UI for the entity regardless of pending status
-    const deviceCard = document.querySelector(`[data-device-id="${entityId}"]`);
-    if (deviceCard) {
-        if (entityId.startsWith('light.')) {
-            updateLightCard(entityId, newState);
-        } else if (entityId.startsWith('climate.')) {
-            updateClimateDisplay(entityId, newState);
-        } else if (entityId.startsWith('sensor.')) {
-            updateSensorCard(entityId, newState);
-        }
-    }
 }
 
 function updateLightCard(entityId, state) {
@@ -345,7 +345,10 @@ function updateLightCard(entityId, state) {
     }
     
     // Hide loader if it exists
-    hideLoader(card);
+    const loader = card.querySelector('.card-loader');
+    if (loader) {
+        loader.remove();
+    }
     
     // If brightness modal is open for this device, update it
     const brightnessModal = document.querySelector('.brightness-modal.show');
