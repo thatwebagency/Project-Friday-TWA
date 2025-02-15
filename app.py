@@ -205,11 +205,12 @@ def get_ha_entities():
 @app.route("/api/setup/entities", methods=['POST'])
 def setup_entities():
     data = request.json
+    complete_setup = request.args.get('complete_setup', 'false').lower() == 'true'
+    
     try:
         # Clear existing entities and relationships
         Entity.query.delete()
         db.session.execute(db.text('DELETE FROM entity_rooms'))
-        db.session.commit()
         
         # Add new entities and their room relationships
         for entity_data in data['entities']:
@@ -225,6 +226,12 @@ def setup_entities():
                 room = Room.query.get(room_id)
                 if room:
                     entity.rooms.append(room)
+        
+        # Update configuration status if completing setup
+        if complete_setup:
+            config = Configuration.query.first()
+            if config:
+                config.is_configured = True
         
         db.session.commit()
         return jsonify({'success': True})
