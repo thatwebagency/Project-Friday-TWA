@@ -288,11 +288,13 @@ function handleStateChange(data) {
             updateSensorCard(entityId, newState);
         } else if (entityId.startsWith('switch.')) {
             updateSwitchCard(entityId, newState);
+        } else if (entityId.startsWith('script.')) {
+            updateScriptPill(entityId, newState);
         }
     }
     
-    // Only show notification if this entity was being updated
-    if (pendingUpdates.has(entityId)) {
+    // Only show notification if this entity was being updated AND it's not a script
+    if (pendingUpdates.has(entityId) && !entityId.startsWith('script.')) {
         // Generate appropriate notification message
         let message = '';
         if (entityId.startsWith('light.')) {
@@ -438,14 +440,31 @@ function displayRoomDevices(roomId) {
     
     // Sort devices by their order within each category
     const categories = {
+        scripts: devices.filter(d => d.type === 'script').sort((a, b) => a.order - b.order),
         sensors: devices.filter(d => d.type === 'sensor').sort((a, b) => a.order - b.order),
         lights: devices.filter(d => d.type === 'light').sort((a, b) => a.order - b.order),
         switches: devices.filter(d => d.type === 'switch').sort((a, b) => a.order - b.order),
         climate: devices.filter(d => d.type === 'climate').sort((a, b) => a.order - b.order),
         other: devices.filter(d => d.type !== 'light' && d.type !== 'climate' && 
-               d.type !== 'sensor' && d.type !== 'switch').sort((a, b) => a.order - b.order),
+               d.type !== 'sensor' && d.type !== 'switch' && d.type !== 'script').sort((a, b) => a.order - b.order),
     };
     
+    // Add scripts section if there are scripts
+    const scriptsHTML = categories.scripts.length > 0 ? `
+        <div class="scripts-section">
+            <div class="scripts-container">
+                ${categories.scripts.map(script => `
+                    <button class="script-pill" 
+                            data-device-id="${script.id}"
+                            data-state="${entityStates[script.id]?.state || 'off'}">
+                        ${script.name}
+                        <div class="script-loader"></div>
+                    </button>
+                `).join('')}
+            </div>
+        </div>
+    ` : '';
+
     // Check if there are any non-climate devices
     const hasNonClimateDevices = Object.entries(categories)
         .filter(([category]) => category !== 'climate')
@@ -572,7 +591,7 @@ function displayRoomDevices(roomId) {
         </div>
     ` : '';
     
-    document.getElementById('roomContent').innerHTML = sectionsHTML + climateHTML;
+    document.getElementById('roomContent').innerHTML = scriptsHTML + sectionsHTML + climateHTML;
 
     // Only setup listeners if we have devices
     if (climateDevices.length > 0) {
@@ -582,6 +601,14 @@ function displayRoomDevices(roomId) {
     } else if (hasNonClimateDevices) {
         setupDeviceControlListeners();
     }
+
+    // Add script execution handler
+    document.querySelectorAll('.script-pill').forEach(pill => {
+        pill.addEventListener('click', async () => {
+            const scriptId = pill.dataset.deviceId;
+            await executeScript(scriptId, pill);
+        });
+    });
 }
 
 function updateDeviceCard(card, state) {
@@ -1380,5 +1407,46 @@ function updateSwitchCard(entityId, state) {
     const loader = card.querySelector('.card-loader');
     if (loader) {
         loader.remove();
+    }
+}
+
+async function executeScript(scriptId, pillElement) {
+    if (!haSocket || haSocket.readyState !== WebSocket.OPEN) {
+        showToast('Not connected to Home Assistant', 5000);
+        return;
+    }
+
+    try {
+        // Show loading state
+        pillElement.classList.add('loading');
+        pendingUpdates.add(scriptId);
+
+        const msgId = getNextMessageId();
+        haSocket.send(JSON.stringify({
+            id: msgId,
+            type: 'call_service',
+            domain: 'script',
+            service: 'turn_on',
+            target: {
+                entity_id: scriptId
+            }
+        }));
+
+        await handleCommandResponse(msgId, scriptId);
+        showToast(`Executed ${entityStates[scriptId]?.attributes?.friendly_name || 'Script'}`);
+    } catch (error) {
+        console.error('Error executing script:', error);
+        showToast(`Failed to execute script: ${error.message}`, 5000);
+    } finally {
+        // Remove loading state
+        pillElement.classList.remove('loading');
+        pendingUpdates.delete(scriptId);
+    }
+}
+
+function updateScriptPill(entityId, state) {
+    const pill = document.querySelector(`[data-device-id="${entityId}"]`);
+    if (pill) {
+        pill.dataset.state = state.state;
     }
 }

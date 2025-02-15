@@ -550,14 +550,15 @@ function renderRoomEntities(roomId) {
         return;
     }
 
-    // Group entities by type, maintaining their order within the groups
+    // Group entities by domain for better organization
     const groups = {
+        script: entities.filter(e => e.domain === 'script'),  // Add scripts first
         climate: entities.filter(e => e.domain === 'climate'),
-        lights: entities.filter(e => e.domain === 'light'),
-        switches: entities.filter(e => e.domain === 'switch'),
-        sensors: entities.filter(e => e.domain === 'sensor'),  // Only include 'sensor' domain
-        binary_sensors: entities.filter(e => e.domain === 'binary_sensor'),  // Separate binary_sensors
-        other: entities.filter(e => !['climate', 'light', 'switch', 'sensor', 'binary_sensor'].includes(e.domain))
+        light: entities.filter(e => e.domain === 'light'),
+        switch: entities.filter(e => e.domain === 'switch'),
+        sensor: entities.filter(e => e.domain === 'sensor'),
+        binary_sensor: entities.filter(e => e.domain === 'binary_sensor'),
+        other: entities.filter(e => !['script', 'climate', 'light', 'switch', 'sensor', 'binary_sensor'].includes(e.domain))
     };
 
     container.innerHTML = Object.entries(groups)
@@ -565,11 +566,12 @@ function renderRoomEntities(roomId) {
         .map(([groupType, groupEntities]) => {
             // Get display name for the group
             const groupDisplayName = {
+                script: 'Scripts',
                 climate: 'Climate',
-                lights: 'Lights',
-                switches: 'Switches',
-                sensors: 'Sensors',
-                binary_sensors: 'Binary Sensors',
+                light: 'Lights',
+                switch: 'Switches',
+                sensor: 'Sensors',
+                binary_sensor: 'Binary Sensors',
                 other: 'Other'
             }[groupType];
 
@@ -581,7 +583,9 @@ function renderRoomEntities(roomId) {
                     </div>
                     <div class="entity-chips-container sortable-group" data-room="${roomId}" data-type="${groupType}">
                         ${groupEntities.map(entity => `
-                            <div class="entity-chip${groupType === 'climate' ? ' climate-chip' : ''}" data-entity-id="${entity.entity_id}" data-domain="${entity.domain}">
+                            <div class="entity-chip${groupType === 'climate' ? ' climate-chip' : ''}" 
+                                 data-entity-id="${entity.entity_id}" 
+                                 data-domain="${entity.domain}">
                                 ${groupType !== 'climate' ? '<div class="entity-drag-handle">⋮</div>' : ''}
                                 <i class="fa-solid fa-${getEntityIcon(entity.domain)}"></i>
                                 ${entity.name}
@@ -726,16 +730,20 @@ function showEntityModal(roomId, roomName) {
     // Group entities by domain for better organization
     function groupEntitiesByDomain(entities) {
         const groups = {
+            script: [], // Add scripts first
             climate: [],
             light: [],
             switch: [],
             sensor: [],
-            binary_sensor: []
+            binary_sensor: [],
+            other: [] // Add other group for remaining entities
         };
         
         entities.forEach(entity => {
             if (groups.hasOwnProperty(entity.domain)) {
                 groups[entity.domain].push(entity);
+            } else {
+                groups.other.push(entity);
             }
         });
         
@@ -904,10 +912,11 @@ function updateSaveButtonState() {
 function getEntityIcon(domain) {
     const iconMap = {
         light: 'lightbulb',
-        switch: 'toggle-on',
+        switch: 'power-off',
         climate: 'temperature-half',
         sensor: 'gauge',
         binary_sensor: 'toggle-on',
+        script: 'code', // Add script icon
         media_player: 'play',
         camera: 'video',
         cover: 'blinds',

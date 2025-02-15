@@ -95,6 +95,12 @@
         background: #e8f5e9;  /* Light green background */
         color: #2e7d32;
     }
+    
+    /* Add specific styling for script chips */
+    .entity-chip[data-domain="script"] {
+        background: #e3f2fd;  /* Light blue background */
+        color: #1565c0;  /* Darker blue text */
+    }
 </style>
 
 <div class="setup-fade-wrapper">
@@ -164,6 +170,20 @@
         <h3 class="setup-step-title">Manage room entities</h3>
         <div id="roomEntityList">
             <!-- Rooms and their entities will be loaded here -->
+            <div class="entity-group">
+                <div class="group-header">
+                    <span>Scripts</span>
+                    <div class="group-drag-handle">⋮⋮</div>
+                </div>
+                <!-- Script entities -->
+            </div>
+            <div class="entity-group">
+                <div class="group-header">
+                    <span>Climate</span>
+                </div>
+                <!-- Climate entities -->
+            </div>
+            <!-- ... other entity groups ... -->
         </div>
         <div class="setup-step-buttons">
             <button type="button" class="back-button" onclick="goToStep(2)">Back</button>

@@ -91,4 +91,61 @@
 
 <!-- Toast Container -->
 <div class="toast-container"></div>
+
+<style>
+.scripts-section {
+    margin-bottom: 20px;
+    padding: 0 20px;
+    padding-left: 0px;
+}
+
+.scripts-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.script-pill {
+    background: #f5f5f5;
+    border: none;
+    border-radius: 20px;
+    padding: 8px 16px;
+    font-size: 14px;
+    cursor: pointer;
+    position: relative;
+    transition: all 0.2s ease;
+    color: #333;
+    display: flex;
+    align-items: center;
+}
+
+.script-pill:hover {
+    background: #e0e0e0;
+}
+
+.script-pill.loading {
+    pointer-events: none;
+    opacity: 0.7;
+}
+
+.script-pill .script-loader {
+    display: none;
+    width: 12px;
+    height: 12px;
+    border: 2px solid #ffffff;
+    border-top: 2px solid transparent;
+    border-radius: 50%;
+    margin-left: 8px;
+    animation: spin 1s linear infinite;
+}
+
+.script-pill.loading .script-loader {
+    display: block;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+</style>
 {% endblock %}

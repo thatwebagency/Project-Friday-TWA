@@ -287,17 +287,32 @@ a.back-to-dashboard {
     color: #2e7d32;
 }
 
+/* Add specific styling for script chips */
+.entity-chip[data-domain="script"] {
+    background: #e3f2fd;  /* Light blue background */
+    color: #1565c0;  /* Darker blue text */
+}
+
 /* Add styling for entity sections in modal */
 .entity-section {
     margin-bottom: 20px;
 }
 
+/* Update the entity-section-header styles */
 .entity-section-header {
     font-size: 14px;
     color: #666;
     margin-bottom: 10px;
     padding-bottom: 5px;
     border-bottom: 1px solid #eee;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.entity-section-header i {
+    font-size: 12px;
+    opacity: 0.7;
 }
 
 .modal-entity-grid {
