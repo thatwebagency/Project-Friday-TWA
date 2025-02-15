@@ -30,14 +30,12 @@ flask db init
 ### Configure .env
 Create a `.env` file in the root directory and add the following configurations:
 ```
-DEBUG=True
-SECRET_KEY=your_secret_key_here
-DATABASE_URL=your_database_url
-# Add other environment variables as needed
+WEATHER_API_KEY= #Your Weather API Key weatherapi.com
+LOCATION= # e.g., "London" or "51.5074,-0.1278"
 ```
 
 ### Run
 ```bash
-python manage.py runserver
+python3 app.py
 ```
-The application will be available at `http://localhost:8000`
+The application will be available at `http://localhost:8165 or http://LOCALNETWORKIP:8165`
