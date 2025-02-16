@@ -1005,10 +1005,12 @@ img.weather-icon {
     background: var(--surface-color);
     border-radius: 12px;
     padding-right: 0px;
+    padding-bottom: 0px;
 }
 
 div#roomContent {
     padding-right: 0px;
+    padding-bottom: 0px;
 }
 
 .devices-grid {
@@ -1061,6 +1063,9 @@ div#roomContent {
 /* Room Content */
 .room-content {
     padding: 30px 20px;
+}
+
+.room-content.has-climate {
     margin-bottom: 100px;
 }
 
@@ -1918,42 +1923,47 @@ img.friday-logo {
     opacity: 0.5;
 }
 
-/* Media Player Card Styles */
 .media-player-card {
-    flex: 0 0 300px;
     height: 210px;
     background: #f7f7f7;
     border-radius: 12px;
     padding: 20px;
-    display: flex;
+    display: flex
+;
     flex-direction: column;
     justify-content: space-between;
     position: relative;
-    align-items: flex-start;
-    padding-top: 30px;
+    transition: all 0.3sease;
+    background-size: cover;
+    background-position: center;
+    width: 361px;
 }
 
-.media-player-controls {
+.media-content {
     display: flex;
-    flex-direction: row;
+    flex-direction: column;
     gap: 15px;
-    width: 100%;
+    height: 100%;
+    justify-content: space-between;
 }
 
 .media-info {
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-    align-items: flex-start;
+    text-align: left;
 }
 
 .media-title {
     font-size: 25px;
-    font-weight: 400;
+    font-weight: 200;
     color: #434343;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    margin-bottom: 5px;
+}
+
+.has-media .media-title,
+.has-media .media-artist {
+    color: white;
 }
 
 .media-artist {
@@ -1964,16 +1974,17 @@ img.friday-logo {
     text-overflow: ellipsis;
 }
 
-.media-buttons {
+.media-controls {
     display: flex;
-    gap: 15px;
     justify-content: center;
+    gap: 15px;
+    margin: 10px 0;
     align-items: center;
 }
 
 .media-btn {
-    width: 40px;
-    height: 40px;
+    width: 50px;
+    height: 50px;
     border-radius: 50%;
     border: none;
     background: white;
@@ -1985,26 +1996,75 @@ img.friday-logo {
     transition: all 0.2s ease;
 }
 
-.media-btn:hover {
-    background: #434343;
+.has-media .media-btn {
+    background: rgba(255, 255, 255, 0.2);
     color: white;
+}
+
+.media-btn:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.3);
 }
 
 .media-btn.play-pause {
-    width: 50px;
-    height: 50px;
-    background: #434343;
-    color: white;
-}
-
-.media-btn.play-pause:hover {
-    background: #000;
+    min-width: 60px;
+    height: 60px;
 }
 
 .media-btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
-    pointer-events: none;
+}
+
+.volume-control {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #434343;
+}
+
+.has-media .volume-control {
+    color: white;
+}
+
+.volume-slider {
+    flex: 1;
+    height: 4px;
+    -webkit-appearance: none;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 2px;
+}
+
+.has-media .volume-slider {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.volume-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 20px;
+    height: 20px;
+    background: rgb(255 255 255);
+    border-radius: 50%;
+    cursor: pointer;
+}
+
+.volume-slider::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    background: white;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+}
+
+.device-name {
+    font-size: 14px;
+    font-weight: 300;
+    color: #434343;
+    margin-top: auto;
+}
+
+.has-media .device-name {
+    color: white;
 }
 
 .device-section {
