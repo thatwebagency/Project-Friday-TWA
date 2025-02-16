@@ -1694,7 +1694,6 @@ input.vertical-brightness-slider {
     font-family: "DM Sans", serif;
     font-size: 14px;
     color: #4a4a4a;
-    width: -webkit-fill-available;
 }
 
 #haConfigForm input[type="text"]::placeholder,
@@ -1917,4 +1916,104 @@ img.friday-logo {
 .device-card[data-state="unavailable"] .brightness-level,
 .device-card[data-state="unavailable"] .switch-state {
     opacity: 0.5;
+}
+
+/* Media Player Card Styles */
+.media-player-card {
+    flex: 0 0 300px;
+    height: 210px;
+    background: #f7f7f7;
+    border-radius: 12px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    position: relative;
+    align-items: flex-start;
+    padding-top: 30px;
+}
+
+.media-player-controls {
+    display: flex;
+    flex-direction: row;
+    gap: 15px;
+    width: 100%;
+}
+
+.media-info {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    align-items: flex-start;
+}
+
+.media-title {
+    font-size: 25px;
+    font-weight: 400;
+    color: #434343;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.media-artist {
+    font-size: 14px;
+    color: #666;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.media-buttons {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    align-items: center;
+}
+
+.media-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: none;
+    background: white;
+    color: #434343;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.media-btn:hover {
+    background: #434343;
+    color: white;
+}
+
+.media-btn.play-pause {
+    width: 50px;
+    height: 50px;
+    background: #434343;
+    color: white;
+}
+
+.media-btn.play-pause:hover {
+    background: #000;
+}
+
+.media-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+.device-section {
+    margin-bottom: 40px;
+}
+
+.section-title {
+    font-size: 24px;
+    font-weight: 200;
+    margin-bottom: 20px;
+    color: #434343;
 }

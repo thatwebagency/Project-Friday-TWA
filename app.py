@@ -1,4 +1,4 @@
-from flask import Flask, render_template, redirect, url_for, request, jsonify, session
+from flask import Flask, render_template, redirect, url_for, request, jsonify, session, Response
 from modules.ha_client import HomeAssistantClient
 from modules.models import db, Configuration, Room, Entity, entity_rooms
 import json
@@ -643,6 +643,37 @@ def get_available_cards():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route("/api/media_proxy/<path:entity_picture>")
+def media_proxy(entity_picture):
+    try:
+        config = Configuration.query.first()
+        if not config:
+            return jsonify({'error': 'Home Assistant not configured'}), 400
+
+        # Construct the full URL to the media
+        ha_url = config.ha_url.rstrip('/')
+        full_url = f"{ha_url}/{entity_picture}"
+
+        # Make the request to Home Assistant with the access token
+        headers = {
+            'Authorization': f'Bearer {config.access_token}',
+            'Accept': 'image/*'
+        }
+        
+        response = requests.get(full_url, headers=headers)
+        response.raise_for_status()
+
+        # Forward the content type header
+        return Response(
+            response.content,
+            content_type=response.headers['content-type'],
+            status=200
+        )
+
+    except Exception as e:
+        logger.error(f"Error proxying media: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
 if __name__ == "__main__":
     # Check if .env file exists and has required variables
     if not os.path.exists('.env') or not all([
@@ -681,4 +712,4 @@ if __name__ == "__main__":
     
     with app.app_context():
         db.create_all()
-    app.run(host='0.0.0.0', port=8165)
+    app.run(host='0.0.0.0', port=8165, debug=True)

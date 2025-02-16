@@ -57,7 +57,6 @@ html {
 }
 
 input[type="text"] {
-    width: 100%;
     padding: 12px;
     border: 1px solid #ddd;
     border-radius: 8px;
@@ -275,6 +274,12 @@ a.back-to-dashboard {
 .entity-chip[data-domain="script"] {
     background: #e3f2fd;  /* Light blue background */
     color: #1565c0;  /* Darker blue text */
+}
+
+/* Add specific styling for media player chips */
+.entity-chip[data-domain="media_player"] {
+    background: #f3e5f5;  /* Light purple background */
+    color: #6a1b9a;  /* Darker purple text */
 }
 
 /* Add styling for entity sections in modal */

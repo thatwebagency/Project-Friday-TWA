@@ -181,7 +181,7 @@ function connectToHA(config) {
             } else if (message.type === "result" && message.success && Array.isArray(message.result)) {
                 handleInitialStates(message.result);
             } else if (message.type === "event" && message.event.event_type === "state_changed") {
-                handleStateChange(message.event.data);
+                handleStateUpdate(message.event);
             }
         };
         
@@ -303,112 +303,86 @@ function showToast(message, duration = 3000) {
     }, duration);
 }
 
-function handleStateChange(data) {
-    const entityId = data.entity_id;
-    const newState = data.new_state;
-    const oldState = data.old_state;
-    
+function handleStateUpdate(event) {
+    if (event.event_type !== 'state_changed') return;
+
+    const entityId = event.data.entity_id;
+    const newState = event.data.new_state;
+
     // Update our local state
     entityStates[entityId] = newState;
-    
-    // Find and update the device card
-    const deviceCard = document.querySelector(`[data-device-id="${entityId}"]`);
-    if (deviceCard) {
-        if (entityId.startsWith('light.')) {
-            updateLightCard(entityId, newState);
-        } else if (entityId.startsWith('climate.')) {
-            updateClimateDisplay(entityId, newState);
-        } else if (entityId.startsWith('sensor.')) {
-            updateSensorCard(entityId, newState);
-        } else if (entityId.startsWith('switch.')) {
-            updateSwitchCard(entityId, newState);
-        } else if (entityId.startsWith('script.')) {
-            updateScriptPill(entityId, newState);
-        }
-    }
-    
-    // Only show notification if this entity was being updated AND it's not a script
-    if (pendingUpdates.has(entityId) && !entityId.startsWith('script.')) {
-        // Generate appropriate notification message
-        let message = '';
-        if (entityId.startsWith('light.')) {
-            const friendlyName = newState.attributes?.friendly_name || 'Light';
-            if (newState.state === 'on' && oldState?.state === 'off') {
-                message = `${friendlyName} turned on`;
-            } else if (newState.state === 'off' && oldState?.state === 'on') {
-                message = `${friendlyName} turned off`;
-            } else if (newState.state === 'on' && newState.attributes?.brightness) {
-                const brightnessPercent = Math.round((newState.attributes.brightness / 255) * 100);
-                message = `${friendlyName} set to ${brightnessPercent}%`;
-            }
-        } else if (entityId.startsWith('climate.')) {
-            const friendlyName = newState.attributes?.friendly_name || 'Climate';
-            if (newState.attributes?.temperature !== oldState?.attributes?.temperature) {
-                message = `${friendlyName} set to ${newState.attributes.temperature}°C`;
-            } else if (newState.state !== oldState?.state) {
-                const mode = newState.state.charAt(0).toUpperCase() + newState.state.slice(1);
-                message = `${friendlyName} mode changed to ${mode}`;
-            } else if (newState.attributes?.fan_mode !== oldState?.attributes?.fan_mode) {
-                const fanMode = newState.attributes.fan_mode.charAt(0).toUpperCase() + 
-                               newState.attributes.fan_mode.slice(1);
-                message = `${friendlyName} fan set to ${fanMode}`;
-            }
-        } else if (entityId.startsWith('switch.')) {
-            const friendlyName = newState.attributes?.friendly_name || 'Switch';
-            if (newState.state === 'on' && oldState?.state === 'off') {
-                message = `${friendlyName} turned on`;
-            } else if (newState.state === 'off' && oldState?.state === 'on') {
-                message = `${friendlyName} turned off`;
-            }
-        }
-        
-        // Show notification if we have a message
-        if (message) {
-            showToast(message);
-        }
-        
-        // Remove entity from pending updates
+
+    // Update the display for this entity
+    updateDeviceDisplay(entityId, newState);
+
+    // If this entity was being updated, remove it from pending updates
+    if (pendingUpdates.has(entityId)) {
         pendingUpdates.delete(entityId);
+        
+        // Find and remove any loaders for this entity
+        const card = document.querySelector(`[data-device-id="${entityId}"]`);
+        if (card) {
+            const loader = card.querySelector('.card-loader');
+            if (loader) {
+                loader.remove();
+            }
+        }
     }
 }
 
-function updateLightCard(entityId, state) {
+function updateDeviceDisplay(entityId, state) {
     const card = document.querySelector(`[data-device-id="${entityId}"]`);
     if (!card) return;
-    
-    // Update card state attribute
-    card.setAttribute('data-state', state.state);
-    
-    // Update brightness level display
-    const brightnessLevel = card.querySelector('.brightness-level');
-    if (brightnessLevel) {
-        if (state.state === 'on') {
-            const brightnessPercent = Math.round((state.attributes?.brightness || 0) / 255 * 100);
-            brightnessLevel.textContent = `${brightnessPercent}%`;
+
+    // Handle media player updates
+    if (entityId.startsWith('media_player.')) {
+        const mediaTitle = card.querySelector('.media-title');
+        const mediaArtist = card.querySelector('.media-artist');
+        const playPauseBtn = card.querySelector('.play-pause');
+        const previousBtn = card.querySelector('.previous');
+        const nextBtn = card.querySelector('.next');
+        
+        // Update title and artist
+        if (mediaTitle) mediaTitle.textContent = state.attributes?.media_title || 'Nothing Playing';
+        if (mediaArtist) mediaArtist.textContent = state.attributes?.media_artist || '';
+        
+        // Update background with media art if available
+        if (state.attributes?.entity_picture) {
+            // Use our proxy endpoint for the artwork
+            const artworkUrl = `/api/media_proxy${state.attributes.entity_picture}`;
+            card.style.backgroundImage = `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.7)), url('${artworkUrl}')`;
+            card.style.backgroundSize = 'cover';
+            card.style.backgroundPosition = 'center';
+            card.classList.add('has-media');
         } else {
-            brightnessLevel.textContent = 'Off';
+            card.style.backgroundImage = 'none';
+            card.style.backgroundColor = '#f7f7f7';
+            card.classList.remove('has-media');
         }
-    }
-    
-    // Hide loader if it exists
-    const loader = card.querySelector('.card-loader');
-    if (loader) {
-        loader.remove();
-    }
-    
-    // If brightness modal is open for this device, update it
-    const brightnessModal = document.querySelector('.brightness-modal.show');
-    if (brightnessModal) {
-        const brightnessValue = brightnessModal.querySelector('.brightness-value');
-        if (brightnessValue) {
-            if (state.state === 'on') {
-                const brightnessPercent = Math.round((state.attributes?.brightness || 0) / 255 * 100);
-                brightnessValue.textContent = `${brightnessPercent}%`;
-            } else {
-                brightnessValue.textContent = 'Off';
-            }
+        
+        // Update play/pause button icon
+        if (playPauseBtn) {
+            playPauseBtn.innerHTML = state.state === 'playing' ? 
+                '<i class="fa-solid fa-pause"></i>' : 
+                '<i class="fa-solid fa-play"></i>';
         }
+        
+        // Enable/disable buttons based on playback state
+        const hasMedia = !!state.attributes?.media_title;
+        if (playPauseBtn) playPauseBtn.disabled = !hasMedia;
+        if (previousBtn) previousBtn.disabled = !hasMedia;
+        if (nextBtn) nextBtn.disabled = !hasMedia;
+        
+        // Update volume slider if it exists
+        const volumeSlider = card.querySelector('.volume-slider');
+        if (volumeSlider && state.attributes?.volume_level !== undefined) {
+            volumeSlider.value = Math.round(state.attributes.volume_level * 100);
+        }
+        
+        return;
     }
+
+    // ... rest of the existing device update code ...
 }
 
 // Room and device functions
@@ -479,8 +453,9 @@ function displayRoomDevices(roomId) {
         lights: devices.filter(d => d.type === 'light').sort((a, b) => a.order - b.order),
         switches: devices.filter(d => d.type === 'switch').sort((a, b) => a.order - b.order),
         climate: devices.filter(d => d.type === 'climate').sort((a, b) => a.order - b.order),
+        media_players: devices.filter(d => d.type === 'media_player').sort((a, b) => a.order - b.order),
         other: devices.filter(d => d.type !== 'light' && d.type !== 'climate' && 
-               d.type !== 'sensor' && d.type !== 'switch' && d.type !== 'script').sort((a, b) => a.order - b.order),
+               d.type !== 'sensor' && d.type !== 'switch' && d.type !== 'script' && d.type !== 'media_player').sort((a, b) => a.order - b.order),
     };
     
     // Add scripts section if there are scripts
@@ -501,27 +476,73 @@ function displayRoomDevices(roomId) {
 
     // Check if there are any non-climate devices
     const hasNonClimateDevices = Object.entries(categories)
-        .filter(([category]) => category !== 'climate')
+        .filter(([category]) => category !== 'climate' && category !== 'media_players')
         .some(([_, devices]) => devices.length > 0);
 
     // Define the order of categories
-    const categoryOrder = ['sensors', 'lights', 'switches', 'other'];
+    const categoryOrder = ['sensors', 'lights', 'switches', 'media_players', 'other'];
 
     // Generate sections HTML only if there are non-climate devices
     const sectionsHTML = hasNonClimateDevices ? 
         categoryOrder
             .map(category => {
-                const deviceList = categories[category];
+                const deviceList = categories[category] || [];
                 if (deviceList.length === 0) return '';
+                
+                // Format the category title
+                const categoryTitle = category.split('_')
+                    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                    .join(' ');
                 
                 return `
                     <div class="device-section">
-                        <h2 class="section-title">${category.charAt(0).toUpperCase() + category.slice(1)}</h2>
+                        <h2 class="section-title">${categoryTitle}</h2>
                         <div class="devices-grid">
                             ${deviceList.map(device => {
                                 const currentState = entityStates[device.id] || {};
                                 const isOn = currentState.state === 'on';
                                 const brightness = currentState.attributes?.brightness || 0;
+                                
+                                if (device.type === 'media_player') {
+                                    return `
+                                        <div class="media-player-card ${currentState.attributes?.media_title ? 'has-media' : ''}" 
+                                             data-device-id="${device.id}"
+                                             ${currentState.attributes?.entity_picture ? 
+                                                `style="background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.7)), url('/api/media_proxy${currentState.attributes.entity_picture}'); background-size: cover; background-position: center;"` : 
+                                                ''}>
+                                            <div class="device-name">${device.name}</div>
+                                            <div class="media-info">
+                                                <div class="media-title">${currentState.attributes?.media_title || 'Nothing Playing'}</div>
+                                                <div class="media-artist">${currentState.attributes?.media_artist || ''}</div>
+                                            </div>
+                                            <div class="media-player-controls">
+                                                <div class="media-buttons">
+                                                    <button class="media-btn previous" ${!currentState.attributes?.media_title ? 'disabled' : ''}>
+                                                        <i class="fa-solid fa-backward-step"></i>
+                                                    </button>
+                                                    <button class="media-btn play-pause" ${!currentState.attributes?.media_title ? 'disabled' : ''}>
+                                                        ${currentState.state === 'playing' ? 
+                                                            '<i class="fa-solid fa-pause"></i>' : 
+                                                            '<i class="fa-solid fa-play"></i>'
+                                                        }
+                                                    </button>
+                                                    <button class="media-btn next" ${!currentState.attributes?.media_title ? 'disabled' : ''}>
+                                                        <i class="fa-solid fa-forward-step"></i>
+                                                    </button>
+                                                </div>
+                                                <div class="volume-control">
+                                                    <i class="fa-solid fa-volume-high volume-icon"></i>
+                                                    <input type="range" 
+                                                           class="volume-slider" 
+                                                           min="0" 
+                                                           max="100" 
+                                                           value="${currentState.attributes?.volume_level ? Math.round(currentState.attributes.volume_level * 100) : 0}"
+                                                           ${!currentState.attributes?.media_title ? 'disabled' : ''}>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    `;
+                                }
                                 
                                 return `
                                     <div class="device-card ${device.type === 'light' ? 'light-card' : ''} 
@@ -635,6 +656,9 @@ function displayRoomDevices(roomId) {
     } else if (hasNonClimateDevices) {
         setupDeviceControlListeners();
     }
+
+    // Add media player listeners
+    setupMediaPlayerListeners();
 
     // Add script execution handler
     document.querySelectorAll('.script-pill').forEach(pill => {
@@ -780,6 +804,12 @@ function showLoader(card) {
     loader.innerHTML = `
         <div class="loader-spinner"></div>
     `;
+    
+    // For media player cards, position the loader appropriately
+    if (card.classList.contains('media-player-card')) {
+        loader.style.background = 'rgba(247, 247, 247, 0.7)'; // Match the card background with transparency
+    }
+    
     card.appendChild(loader);
 }
 
@@ -1484,3 +1514,280 @@ function updateScriptPill(entityId, state) {
         pill.dataset.state = state.state;
     }
 }
+
+function createMediaPlayerCard(entity) {
+    const hasMedia = !!entity.attributes?.media_title;
+    let backgroundStyle = '';
+    
+    if (entity.attributes?.entity_picture) {
+        const artworkUrl = `/api/media_proxy${entity.attributes.entity_picture}`;
+        backgroundStyle = `style="background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.7)), url('${artworkUrl}'); background-size: cover; background-position: center;"`;
+    }
+    
+    const mediaClass = hasMedia ? 'has-media' : '';
+    
+    return `
+        <div class="media-player-card ${mediaClass}" 
+             data-device-id="${entity.entity_id}"
+             ${backgroundStyle}>
+            <div class="device-name">${entity.name}</div>
+            <div class="media-info">
+                <div class="media-title">${entity.attributes?.media_title || 'Nothing Playing'}</div>
+                <div class="media-artist">${entity.attributes?.media_artist || ''}</div>
+            </div>
+            <div class="media-player-controls">
+                <div class="media-buttons">
+                    <button class="media-btn previous" ${!hasMedia ? 'disabled' : ''}>
+                        <i class="fa-solid fa-backward-step"></i>
+                    </button>
+                    <button class="media-btn play-pause" ${!hasMedia ? 'disabled' : ''}>
+                        ${entity.state === 'playing' ? 
+                            '<i class="fa-solid fa-pause"></i>' : 
+                            '<i class="fa-solid fa-play"></i>'
+                        }
+                    </button>
+                    <button class="media-btn next" ${!hasMedia ? 'disabled' : ''}>
+                        <i class="fa-solid fa-forward-step"></i>
+                    </button>
+                </div>
+                <div class="volume-control">
+                    <i class="fa-solid fa-volume-high volume-icon"></i>
+                    <input type="range" 
+                           class="volume-slider" 
+                           min="0" 
+                           max="100" 
+                           value="${entity.attributes?.volume_level ? Math.round(entity.attributes.volume_level * 100) : 0}"
+                           ${!hasMedia ? 'disabled' : ''}>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function setupMediaPlayerListeners() {
+    document.querySelectorAll('.media-player-card').forEach(card => {
+        const deviceId = card.dataset.deviceId;
+        const playPauseBtn = card.querySelector('.play-pause');
+        const previousBtn = card.querySelector('.previous');
+        const nextBtn = card.querySelector('.next');
+        const volumeSlider = card.querySelector('.volume-slider');
+        
+        playPauseBtn?.addEventListener('click', () => {
+            const state = entityStates[deviceId];
+            if (!state) return;
+            
+            const service = state.state === 'playing' ? 'media_pause' : 'media_play';
+            sendMediaCommand(deviceId, service);
+        });
+        
+        previousBtn?.addEventListener('click', () => {
+            sendMediaCommand(deviceId, 'media_previous_track');
+        });
+        
+        nextBtn?.addEventListener('click', () => {
+            sendMediaCommand(deviceId, 'media_next_track');
+        });
+        
+        // Volume slider input (visual update only)
+        volumeSlider?.addEventListener('input', (e) => {
+            // Just let the slider move without sending commands
+        });
+        
+        // Volume slider change (on release)
+        volumeSlider?.addEventListener('change', (e) => {
+            const volume = parseInt(e.target.value) / 100;
+            sendVolumeCommand(deviceId, volume);
+        });
+    });
+}
+
+async function sendMediaCommand(entityId, service) {
+    if (!haSocket || haSocket.readyState !== WebSocket.OPEN) {
+        showToast('Not connected to Home Assistant', 5000);
+        return;
+    }
+
+    const card = document.querySelector(`[data-device-id="${entityId}"]`);
+    if (!card) return;
+
+    // Show loader
+    showLoader(card);
+    pendingUpdates.add(entityId);
+    const msgId = getNextMessageId();
+
+    try {
+        haSocket.send(JSON.stringify({
+            id: msgId,
+            type: 'call_service',
+            domain: 'media_player',
+            service: service,
+            target: {
+                entity_id: entityId
+            }
+        }));
+
+        // Wait for the command response
+        await handleCommandResponse(msgId, entityId);
+        
+        // Don't hide the loader here - let the state update handle it
+    } catch (error) {
+        console.error('Error controlling media player:', error);
+        showToast(`Failed to control media player: ${error.message}`, 5000);
+        hideLoader(card);
+        pendingUpdates.delete(entityId);
+    }
+}
+
+// Add new function for volume control
+async function sendVolumeCommand(entityId, volume) {
+    if (!haSocket || haSocket.readyState !== WebSocket.OPEN) {
+        showToast('Not connected to Home Assistant', 5000);
+        return;
+    }
+
+    const msgId = getNextMessageId();
+    pendingUpdates.add(entityId);
+
+    try {
+        haSocket.send(JSON.stringify({
+            id: msgId,
+            type: 'call_service',
+            domain: 'media_player',
+            service: 'volume_set',
+            target: {
+                entity_id: entityId
+            },
+            service_data: {
+                volume_level: volume
+            }
+        }));
+
+        await handleCommandResponse(msgId, entityId);
+    } catch (error) {
+        console.error('Error setting volume:', error);
+        showToast(`Failed to set volume: ${error.message}`, 5000);
+        pendingUpdates.delete(entityId);
+    }
+}
+
+// Update the styles constant with new media player styles
+const styles = `
+.media-player-card {
+    transition: all 0.3s ease;
+    color: #333; /* default text color */
+}
+
+.media-player-card.has-media {
+    color: white !important; /* Force white text when media artwork is present */
+}
+
+.media-player-card.has-media .media-info {
+    color: white;
+}
+
+.media-player-card.has-media .media-title,
+.media-player-card.has-media .media-artist {
+    color: white;
+}
+
+.media-player-card.has-media .media-btn {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.media-player-card.has-media .media-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.media-player-card.has-media .media-btn.play-pause {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.media-player-card.has-media .media-btn.play-pause:hover {
+    background: rgba(255, 255, 255, 0.4);
+}
+
+.media-player-card.has-media .media-btn svg {
+    stroke: white;
+}
+
+.media-player-card.has-media .media-btn:disabled {
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.media-player-card.has-media .media-btn:disabled svg {
+    stroke: rgba(255, 255, 255, 0.5);
+}
+
+.media-player-card .device-name {
+    font-size: 17px;
+    font-weight: 500;
+    margin-bottom: 8px;
+    opacity: 0.8;
+    margin-top: 0px;
+}
+
+.media-player-card.has-media .device-name {
+    color: white;
+    opacity: 0.9;
+}
+
+.volume-control {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    max-width: 150px;
+}
+
+.volume-icon {
+    opacity: 0.8;
+}
+
+.volume-slider {
+    flex: 1;
+    -webkit-appearance: none;
+    height: 4px;
+    border-radius: 2px;
+    background: #ddd;
+    outline: none;
+}
+
+.volume-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #000;
+    cursor: pointer;
+}
+
+.media-player-card.has-media .volume-slider {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.media-player-card.has-media .volume-slider::-webkit-slider-thumb {
+    background: white;
+}
+
+.media-player-card.has-media .volume-icon {
+    color: white;
+}
+
+.volume-slider:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.volume-slider:disabled::-webkit-slider-thumb {
+    cursor: not-allowed;
+}
+`;
+
+// Add the styles to the document
+const styleSheet = document.createElement("style");
+styleSheet.textContent = styles;
+document.head.appendChild(styleSheet);

@@ -437,13 +437,14 @@ async function saveEntityConfig() {
                 const container = document.getElementById(`entity-chips-${roomId}`);
                 if (!container) continue;
 
-                // Process each group type with its own order counter
-                const groups = ['script', 'climate', 'light', 'switch', 'sensor', 'binary_sensor', 'other'];
+                // Add media_player to the groups array
+                const groups = ['script', 'climate', 'media_player', 'light', 'switch', 'sensor', 'binary_sensor', 'other'];
                 
-                // Initialize order counters for each domain
+                // Add media_player to domain orders
                 const domainOrders = {
                     script: 0,
                     climate: 0,
+                    media_player: 0,
                     light: 0,
                     switch: 0,
                     sensor: 0,
@@ -664,7 +665,8 @@ function renderRoomEntities(roomId) {
         switch: entities.filter(e => e.domain === 'switch'),
         sensor: entities.filter(e => e.domain === 'sensor'),
         binary_sensor: entities.filter(e => e.domain === 'binary_sensor'),
-        other: entities.filter(e => !['script', 'climate', 'light', 'switch', 'sensor', 'binary_sensor'].includes(e.domain))
+        media_player: entities.filter(e => e.domain === 'media_player'),
+        other: entities.filter(e => !['script', 'climate', 'light', 'switch', 'sensor', 'binary_sensor', 'media_player'].includes(e.domain))
     };
 
     container.innerHTML = Object.entries(groups)
@@ -677,6 +679,7 @@ function renderRoomEntities(roomId) {
                 switch: 'Switches',
                 sensor: 'Sensors',
                 binary_sensor: 'Binary Sensors',
+                media_player: 'Media Players',
                 other: 'Other'
             }[groupType];
 
@@ -822,7 +825,7 @@ async function loadAvailableCards(domain) {
     }
 }
 
-// Update showEntityModal function to handle two-step selection
+// Update showEntityModal function to include media players in the grouping
 async function showEntityModal(roomId, roomName) {
     const modal = document.getElementById('entityModal');
     const modalRoomName = document.getElementById('modalRoomName');
@@ -853,31 +856,56 @@ async function showEntityModal(roomId, roomName) {
             return true;
         });
 
-        const groupedEntities = groupEntitiesByDomain(filteredEntities);
+        // Define known domains to prevent duplicates in "other"
+        const knownDomains = ['script', 'climate', 'media_player', 'light', 'switch', 'sensor', 'binary_sensor'];
+
+        const groupedEntities = {
+            script: filteredEntities.filter(e => e.domain === 'script'),
+            climate: filteredEntities.filter(e => e.domain === 'climate'),
+            media_player: filteredEntities.filter(e => e.domain === 'media_player'),
+            light: filteredEntities.filter(e => e.domain === 'light'),
+            switch: filteredEntities.filter(e => e.domain === 'switch'),
+            sensor: filteredEntities.filter(e => e.domain === 'sensor'),
+            binary_sensor: filteredEntities.filter(e => e.domain === 'binary_sensor'),
+            other: filteredEntities.filter(e => !knownDomains.includes(e.domain))  // Use knownDomains array
+        };
         
         modalEntityList.innerHTML = Object.entries(groupedEntities)
             .filter(([domain, entities]) => entities.length > 0)
-            .map(([domain, entities]) => `
-                <div class="entity-section">
-                    <h5 class="entity-section-header">
-                        <i class="fa-solid fa-${getEntityIcon(domain)}"></i>
-                        ${domain.charAt(0).toUpperCase() + domain.slice(1)}s
-                    </h5>
-                    <div class="modal-entity-grid">
-                        ${entities.map(entity => `
-                            <div class="entity-card" 
-                                 data-entity-id="${entity.entity_id}" 
-                                 data-domain="${entity.domain}">
-                                <div class="entity-icon">
-                                    <i class="fa-solid fa-${getEntityIcon(entity.domain)}"></i>
+            .map(([domain, entities]) => {
+                const domainDisplayNames = {
+                    script: 'Scripts',
+                    climate: 'Climate',
+                    media_player: 'Media Players',
+                    light: 'Lights',
+                    switch: 'Switches',
+                    sensor: 'Sensors',
+                    binary_sensor: 'Binary Sensors',
+                    other: 'Other'
+                };
+
+                return `
+                    <div class="entity-section">
+                        <h5 class="entity-section-header">
+                            <i class="fa-solid fa-${getEntityIcon(domain)}"></i>
+                            ${domainDisplayNames[domain]}
+                        </h5>
+                        <div class="modal-entity-grid">
+                            ${entities.map(entity => `
+                                <div class="entity-card" 
+                                     data-entity-id="${entity.entity_id}" 
+                                     data-domain="${entity.domain}">
+                                    <div class="entity-icon">
+                                        <i class="fa-solid fa-${getEntityIcon(entity.domain)}"></i>
+                                    </div>
+                                    <div class="entity-friendly-name">${entity.name}</div>
+                                    <div class="entity-full-name">${entity.entity_id}</div>
                                 </div>
-                                <div class="entity-friendly-name">${entity.name}</div>
-                                <div class="entity-full-name">${entity.entity_id}</div>
-                            </div>
-                        `).join('')}
+                            `).join('')}
+                        </div>
                     </div>
-                </div>
-            `).join('');
+                `;
+            }).join('');
 
         // Add click handlers for entity cards
         modalEntityList.querySelectorAll('.entity-card').forEach(card => {
@@ -994,13 +1022,14 @@ async function saveEntityConfig() {
                 const container = document.getElementById(`entity-chips-${roomId}`);
                 if (!container) continue;
 
-                // Process each group type with its own order counter
-                const groups = ['script', 'climate', 'light', 'switch', 'sensor', 'binary_sensor', 'other'];
+                // Add media_player to the groups array
+                const groups = ['script', 'climate', 'media_player', 'light', 'switch', 'sensor', 'binary_sensor', 'other'];
                 
-                // Initialize order counters for each domain
+                // Add media_player to domain orders
                 const domainOrders = {
                     script: 0,
                     climate: 0,
+                    media_player: 0,
                     light: 0,
                     switch: 0,
                     sensor: 0,
@@ -1095,8 +1124,8 @@ function getEntityIcon(domain) {
         climate: 'temperature-half',
         sensor: 'gauge',
         binary_sensor: 'toggle-on',
-        script: 'code', // Add script icon
-        media_player: 'play',
+        script: 'code',
+        media_player: 'play-circle',
         camera: 'video',
         cover: 'blinds',
         fan: 'fan',
@@ -1117,6 +1146,7 @@ function groupEntitiesByDomain(entities) {
     const groups = {
         script: [],    // Scripts first
         climate: [],
+        media_player: [],
         light: [],
         switch: [],
         sensor: [],
