@@ -144,11 +144,14 @@ python3 app.py
 ```
 
 ### Version History
-- v1.1.0
-  - Added automatic update checking
-  - Improved installation process
-  - Added database backup before upgrades
-- v1.0.0
+- **Version 1.0.1**
+  - Added support for switches
+  - Added support for scripts
+  - Added support for removing entities no longer available in Home Assistant
+  - Added new initial run functions to create .env file from CLI
+  - Updated Settings Entities functionality to autosave on changes
+  - Removed Setup page and replaced with standard Settings page
+- **Version v1.0.0**
   - Initial release
 
 ## Development
