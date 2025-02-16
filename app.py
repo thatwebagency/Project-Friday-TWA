@@ -49,24 +49,9 @@ def check_setup():
 def dashboard():
     config = Configuration.query.first()
     if not config or not config.is_configured:
-        return redirect(url_for('setup'))
+        return redirect(url_for('settings'))
         
     return render_template('dashboard.html', setup_required=False)
-
-@app.route("/setup", methods=['GET'])
-def setup():
-    config = Configuration.query.first()
-    step = request.args.get('step', '1')
-    
-    # Get HA config if it exists
-    ha_config = None
-    if config:
-        ha_config = {
-            'ha_url': config.ha_url,
-            'access_token': config.access_token
-        }
-    
-    return render_template('setup.html', step=step, ha_config=ha_config)
 
 @app.route("/api/setup/ha", methods=['POST'])
 def setup_ha():
@@ -220,12 +205,21 @@ def setup_entities():
                 domain=entity_data['domain']
             )
             db.session.add(entity)
+            db.session.flush()  # Ensure entity has an ID
             
-            # Add entity to specified rooms
-            for room_id in entity_data['rooms']:
-                room = Room.query.get(room_id)
+            # Add entity to specified rooms with order
+            for room_data in entity_data['rooms']:
+                room = Room.query.get(room_data['id'])
                 if room:
-                    entity.rooms.append(room)
+                    # Add entity to room with order
+                    db.session.execute(
+                        entity_rooms.insert().values(
+                            entity_id=entity.id,
+                            room_id=room.id,
+                            order=room_data['order'],
+                            card_type=entity_data.get('card_type', 'base_light_card')
+                        )
+                    )
         
         # Update configuration status if completing setup
         if complete_setup:
@@ -504,21 +498,48 @@ def add_device_to_room(room_id):
     try:
         data = request.json
         room = Room.query.get_or_404(room_id)
-        entity = Entity.query.filter_by(entity_id=data['entity_id']).first()
         
+        # First find or create the entity
+        entity = Entity.query.filter_by(entity_id=data['entity_id']).first()
         if not entity:
-            # Create new entity if it doesn't exist
             entity = Entity(
                 entity_id=data['entity_id'],
                 name=data['name'],
                 domain=data['domain']
             )
             db.session.add(entity)
+            db.session.flush()  # This ensures the entity gets an ID
         
-        if room not in entity.rooms:
-            entity.rooms.append(room)
-            db.session.commit()
+        # Make sure we have a valid entity ID
+        if not entity.id:
+            raise ValueError("Failed to get entity ID")
             
+        # Check if relationship already exists
+        existing = db.session.execute(
+            entity_rooms.select().where(
+                entity_rooms.c.entity_id == entity.id,
+                entity_rooms.c.room_id == room.id
+            )
+        ).first()
+        
+        if not existing:
+            # Get the next order number for this room
+            max_order = db.session.execute(
+                db.select(db.func.max(entity_rooms.c.order))
+                .where(entity_rooms.c.room_id == room.id)
+            ).scalar() or -1
+            
+            # Add entity to room with card type
+            db.session.execute(
+                entity_rooms.insert().values(
+                    entity_id=entity.id,
+                    room_id=room.id,
+                    order=max_order + 1,
+                    card_type=data.get('card_type', 'base_light_card')
+                )
+            )
+        
+        db.session.commit()
         return jsonify({'success': True})
         
     except Exception as e:
@@ -599,6 +620,29 @@ def remove_missing_entities():
     except Exception as e:
         db.session.rollback()
         logger.error(f"Error removing missing entities: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route("/api/cards/available")
+def get_available_cards():
+    try:
+        cards = []
+        components_dir = os.path.join('static', 'components')
+        
+        # Iterate through component directories
+        for card_dir in os.listdir(components_dir):
+            settings_path = os.path.join(components_dir, card_dir, 'card_settings.json')
+            if os.path.exists(settings_path):
+                with open(settings_path, 'r') as f:
+                    settings = json.load(f)
+                    cards.append({
+                        'id': card_dir,
+                        'name': settings.get('name', card_dir),
+                        'entity_type': settings.get('entity_type', 'unknown'),
+                        'description': settings.get('description', '')
+                    })
+        
+        return jsonify(cards)
+    except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 if __name__ == "__main__":

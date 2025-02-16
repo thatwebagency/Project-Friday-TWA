@@ -405,20 +405,68 @@ async function testAndSaveConnection() {
 // Update saveEntityConfig function
 async function saveEntityConfig() {
     try {
-        // Convert roomEntities Map to array format expected by backend
         const entities = [];
         if (roomEntities && roomEntities.size > 0) {
             for (const [roomId, roomEntityList] of roomEntities) {
-                roomEntityList.forEach(entity => {
-                    const existingEntity = entities.find(e => e.entity_id === entity.entity_id);
-                    if (existingEntity) {
-                        existingEntity.rooms.push(roomId);
-                    } else {
-                        entities.push({
-                            ...entity,
-                            rooms: [roomId]
-                        });
-                    }
+                const container = document.getElementById(`entity-chips-${roomId}`);
+                if (!container) continue;
+
+                // Process each group type with its own order counter
+                const groups = ['script', 'climate', 'light', 'switch', 'sensor', 'binary_sensor', 'other'];
+                
+                // Initialize order counters for each domain
+                const domainOrders = {
+                    script: 0,
+                    climate: 0,
+                    light: 0,
+                    switch: 0,
+                    sensor: 0,
+                    binary_sensor: 0,
+                    other: 0
+                };
+
+                groups.forEach(groupType => {
+                    const groupContainer = container.querySelector(`.sortable-group[data-type="${groupType}"]`);
+                    if (!groupContainer) return;
+
+                    // Get entities in their current order for this group
+                    const groupEntities = Array.from(groupContainer.querySelectorAll('.entity-chip'))
+                        .map(chip => {
+                            const entityId = chip.dataset.entityId;
+                            const entity = roomEntityList.find(e => e.entity_id === entityId);
+                            if (entity) {
+                                // Use domain-specific order counter
+                                const domain = entity.domain;
+                                const order = domainOrders[domain] || domainOrders.other;
+                                domainOrders[domain] = (domainOrders[domain] || 0) + 1;
+                                
+                                return {
+                                    ...entity,
+                                    order: order
+                                };
+                            }
+                            return null;
+                        })
+                        .filter(Boolean);
+
+                    // Add entities from this group to the main entities array
+                    groupEntities.forEach(entity => {
+                        const existingEntity = entities.find(e => e.entity_id === entity.entity_id);
+                        if (existingEntity) {
+                            existingEntity.rooms.push({
+                                id: roomId,
+                                order: entity.order
+                            });
+                        } else {
+                            entities.push({
+                                ...entity,
+                                rooms: [{
+                                    id: roomId,
+                                    order: entity.order
+                                }]
+                            });
+                        }
+                    });
                 });
             }
         }
@@ -567,6 +615,11 @@ function renderRoomEntities(roomId) {
     const entities = roomEntities.get(roomId) || [];
     const container = document.getElementById(`entity-chips-${roomId}`);
     
+    if (!container) {
+        console.error(`Container not found for room ${roomId}`);
+        return;
+    }
+    
     if (entities.length === 0) {
         container.innerHTML = `
             <div class="empty-state">
@@ -579,7 +632,7 @@ function renderRoomEntities(roomId) {
 
     // Group entities by domain for better organization
     const groups = {
-        script: entities.filter(e => e.domain === 'script'),  // Add scripts first
+        script: entities.filter(e => e.domain === 'script'),
         climate: entities.filter(e => e.domain === 'climate'),
         light: entities.filter(e => e.domain === 'light'),
         switch: entities.filter(e => e.domain === 'switch'),
@@ -591,7 +644,6 @@ function renderRoomEntities(roomId) {
     container.innerHTML = Object.entries(groups)
         .filter(([_, groupEntities]) => groupEntities.length > 0)
         .map(([groupType, groupEntities]) => {
-            // Get display name for the group
             const groupDisplayName = {
                 script: 'Scripts',
                 climate: 'Climate',
@@ -631,10 +683,11 @@ function renderRoomEntities(roomId) {
                 animation: 150,
                 handle: '.entity-drag-handle',
                 group: `entities-${group.dataset.type}`,
-                onEnd: function(evt) {
+                onEnd: async function(evt) {
                     const roomId = evt.to.dataset.room;
                     const groupType = evt.to.dataset.type;
-                    updateEntityOrder(roomId, groupType);
+                    await updateEntityOrder(roomId, groupType);
+                    await saveEntityConfig(); // Auto-save after reordering
                 }
             });
         }
@@ -716,48 +769,54 @@ style.textContent = `
 `;
 document.head.appendChild(style);
 
-function showEntityModal(roomId, roomName) {
+// Add this function to load available cards
+async function loadAvailableCards(domain) {
+    try {
+        const response = await fetch('/api/cards/available');
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const cards = await response.json();
+        
+        // Ensure cards is an array before filtering
+        if (!Array.isArray(cards)) {
+            console.error('Expected array of cards, got:', cards);
+            return [];
+        }
+        
+        // Filter cards based on entity domain
+        return cards.filter(card => 
+            card.entity_type === domain || 
+            card.entity_type === 'all' ||
+            !card.entity_type  // Include cards without entity_type specified
+        );
+    } catch (error) {
+        console.error('Error loading cards:', error);
+        return [];
+    }
+}
+
+// Update showEntityModal function to handle two-step selection
+async function showEntityModal(roomId, roomName) {
     const modal = document.getElementById('entityModal');
     const modalRoomName = document.getElementById('modalRoomName');
     const modalEntityList = document.getElementById('modalEntityList');
     const searchInput = document.getElementById('entitySearch');
+    const saveBtn = modal.querySelector('.modal-save');
     
-    // Set room name in modal
+    // Reset modal state
     modalRoomName.textContent = roomName;
+    searchInput.value = '';
+    saveBtn.disabled = true;
     
     // Get entities already in the room
     const roomEntityIds = new Set((roomEntities.get(roomId) || []).map(e => e.entity_id));
     const hasClimate = (roomEntities.get(roomId) || []).some(e => e.domain === 'climate');
     
-    // Group entities by domain for better organization
-    function groupEntitiesByDomain(entities) {
-        const groups = {
-            climate: [],
-            light: [],
-            switch: [],
-            sensor: [],
-            binary_sensor: [],
-            script: [], // Add scripts group
-            default: []
-        };
-        
-        entities.forEach(entity => {
-            if (groups.hasOwnProperty(entity.domain)) {
-                groups[entity.domain].push(entity);
-            } else {
-                groups.default.push(entity);
-            }
-        });
-        
-        return groups;
-    }
-
     // Render available entities
     function renderEntities(searchTerm = '') {
         const filteredEntities = availableEntities.filter(entity => {
-            // Skip if entity is already in room
             if (roomEntityIds.has(entity.entity_id)) return false;
-            // Skip climate if one already exists
             if (entity.domain === 'climate' && hasClimate) return false;
             
             if (searchTerm) {
@@ -768,33 +827,40 @@ function showEntityModal(roomId, roomName) {
             return true;
         });
 
-        // Group filtered entities by domain
         const groupedEntities = groupEntitiesByDomain(filteredEntities);
         
         modalEntityList.innerHTML = Object.entries(groupedEntities)
             .filter(([domain, entities]) => entities.length > 0)
             .map(([domain, entities]) => `
                 <div class="entity-section">
-                    <h5 class="entity-section-header">${domain.charAt(0).toUpperCase() + domain.slice(1)}s</h5>
+                    <h5 class="entity-section-header">
+                        <i class="fa-solid fa-${getEntityIcon(domain)}"></i>
+                        ${domain.charAt(0).toUpperCase() + domain.slice(1)}s
+                    </h5>
                     <div class="modal-entity-grid">
                         ${entities.map(entity => `
-                            <div class="entity-card" data-entity-id="${entity.entity_id}" data-domain="${entity.domain}">
+                            <div class="entity-card" 
+                                 data-entity-id="${entity.entity_id}" 
+                                 data-domain="${entity.domain}">
                                 <div class="entity-icon">
                                     <i class="fa-solid fa-${getEntityIcon(entity.domain)}"></i>
                                 </div>
                                 <div class="entity-friendly-name">${entity.name}</div>
                                 <div class="entity-full-name">${entity.entity_id}</div>
-                                <div class="entity-checkbox"></div>
                             </div>
                         `).join('')}
                     </div>
                 </div>
             `).join('');
 
-        // Add click handlers for cards
+        // Add click handlers for entity cards
         modalEntityList.querySelectorAll('.entity-card').forEach(card => {
             card.addEventListener('click', () => {
-                card.classList.toggle('selected');
+                // Toggle selection
+                modalEntityList.querySelectorAll('.entity-card').forEach(c => 
+                    c.classList.remove('selected'));
+                card.classList.add('selected');
+                saveBtn.disabled = false;
             });
         });
     }
@@ -803,72 +869,150 @@ function showEntityModal(roomId, roomName) {
     renderEntities();
     
     // Setup search
-    searchInput.value = '';
     searchInput.addEventListener('input', (e) => renderEntities(e.target.value));
     
-    // Setup modal buttons
-    const closeBtn = modal.querySelector('.modal-close');
-    const cancelBtn = modal.querySelector('.modal-cancel');
-    const saveBtn = modal.querySelector('.modal-save');
-    
-    function closeModal() {
-        modal.style.display = 'none';
-        searchInput.removeEventListener('input', renderEntities);
-    }
-    
-    closeBtn.onclick = closeModal;
-    cancelBtn.onclick = closeModal;
-    
-    saveBtn.onclick = () => {
-        const selectedCards = modalEntityList.querySelectorAll('.entity-card.selected');
-        const newEntities = Array.from(selectedCards).map(card => {
-            const entityId = card.dataset.entityId;
-            const entity = availableEntities.find(e => e.entity_id === entityId);
-            return {
-                entity_id: entity.entity_id,
-                name: entity.name,
-                domain: entity.domain
-            };
-        });
+    // Update save button handler
+    saveBtn.onclick = async () => {
+        const selectedCard = modalEntityList.querySelector('.entity-card.selected');
+        if (!selectedCard) return;
         
-        // Add selected entities to room
-        const currentEntities = roomEntities.get(roomId) || [];
-        roomEntities.set(roomId, [...currentEntities, ...newEntities]);
+        const entityId = selectedCard.dataset.entityId;
+        const entity = availableEntities.find(e => e.entity_id === entityId);
         
-        // Re-render room entities and update save button state
-        renderRoomEntities(roomId);
-        updateSaveButtonState();
-        closeModal();
+        try {
+            const response = await fetch(`/api/rooms/${roomId}/devices`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    entity_id: entity.entity_id,
+                    name: entity.name,
+                    domain: entity.domain
+                })
+            });
+
+            if (response.ok) {
+                // Update the roomEntities Map with the new entity
+                const currentEntities = roomEntities.get(roomId) || [];
+                currentEntities.push({
+                    entity_id: entity.entity_id,
+                    name: entity.name,
+                    domain: entity.domain
+                });
+                roomEntities.set(roomId, currentEntities);
+
+                // Re-render and auto-save
+                renderRoomEntities(roomId);
+                await saveEntityConfig();
+                
+                modal.style.display = 'none';
+                showToast('Entity added successfully', 'success');
+            } else {
+                const error = await response.json();
+                showToast(error.error || 'Error adding entity', 'error');
+            }
+        } catch (error) {
+            console.error('Error saving entity:', error);
+            showToast('Error adding entity', 'error');
+        }
     };
     
     // Show modal
     modal.style.display = 'block';
 }
 
-function removeEntityFromRoom(roomId, entityId) {
-    const entities = roomEntities.get(roomId) || [];
-    roomEntities.set(roomId, entities.filter(e => e.entity_id !== entityId));
-    renderRoomEntities(roomId);
-    updateSaveButtonState();
+async function removeEntityFromRoom(roomId, entityId) {
+    try {
+        const response = await fetch(`/api/rooms/${roomId}/devices/${entityId}`, {
+            method: 'DELETE'
+        });
+
+        if (response.ok) {
+            // Update local state
+            const entities = roomEntities.get(roomId) || [];
+            const updatedEntities = entities.filter(e => e.entity_id !== entityId);
+            roomEntities.set(roomId, updatedEntities);
+
+            // Re-render and auto-save
+            renderRoomEntities(roomId);
+            await saveEntityConfig();
+            
+            showToast('Entity removed successfully', 'success');
+        } else {
+            showToast('Error removing entity', 'error');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        showToast('Error removing entity', 'error');
+    }
 }
 
 // Update saveEntityConfig to handle the Map iteration properly
 async function saveEntityConfig() {
     try {
-        // Convert roomEntities Map to array format expected by backend
         const entities = [];
         if (roomEntities && roomEntities.size > 0) {
             for (const [roomId, roomEntityList] of roomEntities) {
-                roomEntityList.forEach(entity => {
-                    const existingEntity = entities.find(e => e.entity_id === entity.entity_id);
-                    if (existingEntity) {
-                        existingEntity.rooms.push(roomId);
-                    } else {
-                        entities.push({
-                            ...entity,
-                            rooms: [roomId]
-                        });
-                    }
+                const container = document.getElementById(`entity-chips-${roomId}`);
+                if (!container) continue;
+
+                // Process each group type with its own order counter
+                const groups = ['script', 'climate', 'light', 'switch', 'sensor', 'binary_sensor', 'other'];
+                
+                // Initialize order counters for each domain
+                const domainOrders = {
+                    script: 0,
+                    climate: 0,
+                    light: 0,
+                    switch: 0,
+                    sensor: 0,
+                    binary_sensor: 0,
+                    other: 0
+                };
+
+                groups.forEach(groupType => {
+                    const groupContainer = container.querySelector(`.sortable-group[data-type="${groupType}"]`);
+                    if (!groupContainer) return;
+
+                    // Get entities in their current order for this group
+                    const groupEntities = Array.from(groupContainer.querySelectorAll('.entity-chip'))
+                        .map(chip => {
+                            const entityId = chip.dataset.entityId;
+                            const entity = roomEntityList.find(e => e.entity_id === entityId);
+                            if (entity) {
+                                // Use domain-specific order counter
+                                const domain = entity.domain;
+                                const order = domainOrders[domain] || domainOrders.other;
+                                domainOrders[domain] = (domainOrders[domain] || 0) + 1;
+                                
+                                return {
+                                    ...entity,
+                                    order: order
+                                };
+                            }
+                            return null;
+                        })
+                        .filter(Boolean);
+
+                    // Add entities from this group to the main entities array
+                    groupEntities.forEach(entity => {
+                        const existingEntity = entities.find(e => e.entity_id === entity.entity_id);
+                        if (existingEntity) {
+                            existingEntity.rooms.push({
+                                id: roomId,
+                                order: entity.order
+                            });
+                        } else {
+                            entities.push({
+                                ...entity,
+                                rooms: [{
+                                    id: roomId,
+                                    order: entity.order
+                                }]
+                            });
+                        }
+                    });
                 });
             }
         }
@@ -930,3 +1074,30 @@ function initializeRoomInputs() {
         input.addEventListener('blur', saveRooms);
     });
 }
+
+// Add this helper function to group entities by domain
+function groupEntitiesByDomain(entities) {
+    const groups = {
+        script: [],    // Scripts first
+        climate: [],
+        light: [],
+        switch: [],
+        sensor: [],
+        binary_sensor: [],
+        other: []
+    };
+    
+    entities.forEach(entity => {
+        if (groups.hasOwnProperty(entity.domain)) {
+            groups[entity.domain].push(entity);
+        } else {
+            groups.other.push(entity);
+        }
+    });
+    
+    // Remove empty groups
+    return Object.fromEntries(
+        Object.entries(groups).filter(([_, entities]) => entities.length > 0)
+    );
+}
+

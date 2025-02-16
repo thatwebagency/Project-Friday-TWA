@@ -23,6 +23,8 @@ Follow Clean Install, if you do not already have Project Friday installed. Follo
   - Added support for scripts
   - Added support for removing entities no longer available in Home Assistant
   - Added new initial run functions to create .env file from CLI
+  - Updated Settings Entities functionality to autosave on changes
+  - Removed Setup page and replaced with standard Settings page
 
 ## Features
 
@@ -137,6 +139,7 @@ Updating Project Friday is simple, follow these steps:
 ```bash
 git pull
 flask db migrate
+flask db upgrade
 python3 app.py
 ```
 
