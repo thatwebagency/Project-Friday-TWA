@@ -12,15 +12,6 @@
     --error-bg-color: #f8d7da;
 }
 
-.setup-container {
-    max-width: 600px;
-    margin: 50px auto;
-    padding: 20px;
-    display: block;  /* Ensure it's always displayed */
-    position: relative;
-    min-height: 400px; /* Adjust based on your content */
-}
-
 .setup-step {
     background: #fff;
     transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -801,40 +792,6 @@ div#setupCompleteModal {
     height: auto;
 }
 
-/* Mobile Responsiveness */
-@media (max-width: 768px) {
-    .fade-word {
-        opacity: 0;
-        margin: 0 0.5rem;
-        display: inline-block;
-        font-size: 14vw;
-    }
-
-    .start-button {
-        background: white;
-        border: none;
-        text-decoration: underline;
-        font-size: 3rem;
-        padding: 10px 20px;
-        cursor: pointer;
-        font-family: "DM Sans", serif;
-        color: #4a4a4a;
-        margin-top: 100px;
-    }
-
-    .setup-container {
-        margin: 60px;
-        width: 100%;
-        max-width: 100%;
-    }
-
-    h2.setup-header-text {
-        font-size: 10vw;
-    }
-
-
-}
-
 /* Dashboard Layout */
 .dashboard-container {
     display: flex;
@@ -906,20 +863,6 @@ div#setupCompleteModal {
 .hourly-forecast {
     text-align: left;
     font-weight: 200;
-}
-
-/* Mobile Responsiveness */
-@media (max-width: 768px) {
-    .dashboard-container {
-        flex-direction: column;
-    }
-
-    .dashboard-left {
-        width: 100%;
-        max-width: none;
-        border-right: none;
-        border-bottom: 1px solid #eee;
-    }
 }
 
 /* Weather Styling */

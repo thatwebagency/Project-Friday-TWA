@@ -60,10 +60,36 @@ function initializeTabs() {
     });
 }
 
+// Add this near the top of the file with other initialization code
+function initializeModalEvents() {
+    const entityModal = document.getElementById('entityModal');
+    const closeButton = entityModal.querySelector('.modal-close');
+    const cancelButton = entityModal.querySelector('.modal-cancel');
+    
+    // Close button (X) handler
+    closeButton.addEventListener('click', () => {
+        entityModal.style.display = 'none';
+    });
+    
+    // Cancel button handler
+    cancelButton.addEventListener('click', () => {
+        entityModal.style.display = 'none';
+    });
+    
+    // Close modal when clicking outside
+    window.addEventListener('click', (e) => {
+        if (e.target === entityModal) {
+            entityModal.style.display = 'none';
+        }
+    });
+}
+
+// Update the DOMContentLoaded event listener to include the new initialization
 document.addEventListener('DOMContentLoaded', () => {
-    // Initialize setup form with existing values if any
     initializeSetup();
     initializeTabs();
+    initializeMobileEvents();
+    initializeModalEvents();
     
     // Add event listener for the save button in connection tab
     const saveButton = document.getElementById('nextButton');
@@ -658,7 +684,7 @@ function renderRoomEntities(roomId) {
                 <div class="entity-group" data-group="${groupType}">
                     <div class="group-header">
                         <span>${groupDisplayName}</span>
-                        ${groupType !== 'climate' ? '<div class="group-drag-handle">⋮⋮</div>' : ''}
+                        ${groupType === 'climate' ? '<span class="help-text-climate">1 climate per room</span>' : ''}
                     </div>
                     <div class="entity-chips-container sortable-group" data-room="${roomId}" data-type="${groupType}">
                         ${groupEntities.map(entity => `
@@ -920,6 +946,17 @@ async function showEntityModal(roomId, roomName) {
     
     // Show modal
     modal.style.display = 'block';
+
+    // Add this near the end of the function
+    if (window.innerWidth <= 768) {
+        // Scroll modal to top on mobile
+        modalEntityList.scrollTop = 0;
+        
+        // Focus search input with a slight delay to prevent visual issues
+        setTimeout(() => {
+            searchInput.focus();
+        }, 300);
+    }
 }
 
 async function removeEntityFromRoom(roomId, entityId) {
@@ -1099,5 +1136,31 @@ function groupEntitiesByDomain(entities) {
     return Object.fromEntries(
         Object.entries(groups).filter(([_, entities]) => entities.length > 0)
     );
+}
+
+// Add touch event handling for better mobile experience
+function initializeMobileEvents() {
+    // Prevent body scrolling when modal is open on mobile
+    const modal = document.getElementById('entityModal');
+    modal.addEventListener('touchmove', (e) => {
+        if (e.target === modal) {
+            e.preventDefault();
+        }
+    });
+
+    // Add touch feedback for entity cards
+    document.addEventListener('touchstart', (e) => {
+        const entityCard = e.target.closest('.entity-card');
+        if (entityCard) {
+            entityCard.style.opacity = '0.7';
+        }
+    }, { passive: true });
+
+    document.addEventListener('touchend', (e) => {
+        const entityCard = e.target.closest('.entity-card');
+        if (entityCard) {
+            entityCard.style.opacity = '1';
+        }
+    }, { passive: true });
 }
 

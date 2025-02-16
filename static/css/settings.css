@@ -4,6 +4,10 @@
     padding: 20px;
 }
 
+html {
+    background: #f5f5f5;
+}
+
 .settings-header {
     margin-bottom: 30px;
     font-size: 24px;
@@ -138,34 +142,14 @@ button:disabled {
     flex-direction: column;
 }
 
-.back-to-dashboard {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 16px;
-    background-color: #f5f5f5;
-    border-radius: 20px;
-    color: #333;
-    text-decoration: none;
-    font-size: 14px;
-    transition: background-color 0.2s, color 0.2s;
-}
-
-.back-to-dashboard:hover {
-    background-color: #e0e0e0;
-    color: #1a73e8;
-}
-
-.back-to-dashboard i {
-    font-size: 12px;
-}
-
 h2.setup-header-text {
     margin-top: 15px;
 }
 
 a.back-to-dashboard {
-    color: black !important;
+    color: #ffffff !important;
+    text-decoration: none;
+    font-size: 12px;
 }
 
 /* Toast Notifications */
@@ -359,4 +343,187 @@ a.back-to-dashboard {
 .entity-card .entity-full-name {
     font-size: 12px;
     color: #666;
+}
+
+span.help-text-climate {
+    font-size: 10px;
+    font-weight: 300;
+}
+
+/* Mobile Responsive Styles */
+@media (max-width: 768px) {
+    .settings-tabs {
+        gap: 10px;
+        overflow-x: auto;
+        padding-bottom: 5px;
+        -webkit-overflow-scrolling: touch;
+        margin-bottom: 10px;
+    }
+
+    .settings-header-container {
+        margin-bottom: 0px!important;
+    }
+
+    .tab-button {
+        padding: 8px 15px;
+        font-size: 14px;
+        white-space: nowrap;
+    }
+
+    .modal-entity-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .entity-card {
+        max-width: none;
+    }
+}
+
+@media (max-width: 480px) {
+    .settings-container {
+        padding: 15px;
+    }
+
+    .modal-entity-grid {
+        grid-template-columns: 1fr 1fr;
+        max-width: 100%;
+        overflow-wrap: anywhere;
+    }
+
+    .entity-chips-container {
+        gap: 5px;
+    }
+
+    .entity-chip {
+        padding: 4px 8px;
+        font-size: 13px;
+    }
+
+    .room-entry {
+        flex-wrap: wrap;
+    }
+
+    .room-entry input {
+        flex: 1;
+        min-width: 200px;
+    }
+
+    .delete-room {
+        min-width: 36px;
+    }
+
+    .toast {
+        width: 90%;
+        max-width: none;
+        margin: 0 auto;
+        font-size: 13px;
+        padding: 10px 20px;
+    }
+
+    .form-group input[type="text"] {
+        font-size: 16px; /* Prevents iOS zoom on focus */
+        width: -webkit-fill-available;
+    }
+
+    input[type="text"] {
+        font-size: 16px; /* Prevents iOS zoom on focus */
+        width: -webkit-fill-available;
+    }
+
+    .help-text {
+        font-size: 11px;
+    }
+}
+
+/* Two-column layout */
+.setup-container {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    min-height: 100vh;
+    margin: 0;
+    max-width: none;
+}
+
+/* Left column styling */
+.settings-left {
+    background: black;
+    color: white;
+    padding: 30px;
+    position: relative;
+}
+
+.settings-header-container {
+    margin-bottom: 40px;
+}
+
+.setup-header-text {
+    color: white;
+    font-weight: 200;
+    margin-top: 20px;
+}
+
+/* Vertical tab styling */
+.settings-tabs {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    border: none;
+    padding: 0;
+}
+
+.tab-button {
+    text-align: left;
+    padding: 12px 20px;
+    color: rgba(255, 255, 255, 0.7);
+    border-radius: 12px;
+    transition: all 0.2s;
+}
+
+.tab-button:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.tab-button.active {
+    background: white;
+    color: black;
+}
+
+.tab-button.active::after {
+    display: none;
+}
+
+/* Right column styling */
+.settings-right {
+    padding: 40px;
+    background: #f5f5f5;
+}
+
+.tab-content {
+    background: white;
+    padding: 30px;
+    border-radius: 15px;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+/* Mobile responsive styles */
+@media (max-width: 768px) {
+    .setup-container {
+        grid-template-columns: 1fr;
+    }
+    
+    .settings-left {
+        padding: 20px;
+        padding-top: 50px;
+    }
+    
+    .settings-tabs {
+        flex-direction: row;
+        overflow-x: auto;
+
+    }
+    
+    .settings-right {
+        padding: 20px;
+    }
 }

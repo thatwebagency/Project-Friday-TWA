@@ -216,8 +216,7 @@ def setup_entities():
                         entity_rooms.insert().values(
                             entity_id=entity.id,
                             room_id=room.id,
-                            order=room_data['order'],
-                            card_type=entity_data.get('card_type', 'base_light_card')
+                            order=room_data['order']
                         )
                     )
         
@@ -534,8 +533,7 @@ def add_device_to_room(room_id):
                 entity_rooms.insert().values(
                     entity_id=entity.id,
                     room_id=room.id,
-                    order=max_order + 1,
-                    card_type=data.get('card_type', 'base_light_card')
+                    order=max_order + 1
                 )
             )
         
