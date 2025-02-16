@@ -4,8 +4,11 @@
 
 Project Friday is a modern, simplified dashboard interface designed for Tablet devices, for Home Assistant that provides an intuitive way to control your smart home. It focuses on delivering a clean, customizable interface for managing essential home automation controls.
 
-## Project Friday Dashboard
-![Project Friday Dashboard](https://community-assets.home-assistant.io/original/4X/2/7/1/271bb78a8bea25699579afc01015a3f43c5a7081.gif)
+## Dashboard
+![Project Friday Dashboard](https://community-assets.home-assistant.io/original/4X/2/a/8/2a8598863684ca61eb3df78788d4b5c8accf4f60.gif)
+
+## Settings config
+![Project Friday Settings Config](https://community-assets.home-assistant.io/original/4X/b/5/3/b530c18a386487bcfc7bee73796b46b4509822db.gif)
 
 ### 🔧 Quick Links
 
@@ -21,14 +24,16 @@ Follow Clean Install, if you do not already have Project Friday installed. Follo
 - **Version 1.0.1**
   - Added support for switches
   - Added support for scripts
+  - Added support for media players
   - Added support for removing entities no longer available in Home Assistant
   - Added new initial run functions to create .env file from CLI
   - Updated Settings Entities functionality to autosave on changes
   - Removed Setup page and replaced with standard Settings page
+  - Resolved various bugs
 
 ## Features
 
-### 🎯 Core Features
+### Core Features
 - **Easy Setup and Configuration**
   - Simple connection to Home Assistant via URL and access token
   - Support for both local and Nabu Casa instances
@@ -63,6 +68,13 @@ Follow Clean Install, if you do not already have Project Friday installed. Follo
 - Fan mode control
 - Current temperature display
 
+#### Media Players
+- Playback controls
+- Volume control
+- Song and Artist details
+- Track media artwork
+- Media selection (coming soon)
+
 #### Sensors
 - Real-time value display
 - Unit display
@@ -74,12 +86,11 @@ Follow Clean Install, if you do not already have Project Friday installed. Follo
 - Visual feedback
 
 ## Getting Started
-⚠️ **Warning**: Project Friday only works with Home Assistant Cloud connected (Nabu Casa) instances using your Nabu Casa remote URL. Currently resolving issue with LOCAL IP address setup.
 ⚠️ **Warning**: Project Friday is currently in active development. While functional, you may encounter bugs or incomplete features. Please report any issues on GitHub.
 
 ### Prerequisites
 - Python 3.8 or higher
-- Home Assistant instance (Nabu Casa)
+- Home Assistant instance (Nabu Casa or Local)
 - Weather API key from [weatherapi.com](https://www.weatherapi.com)
 
 ### Clean Installation
@@ -126,7 +137,7 @@ The application will be available at:
 
 1. Access Project Friday at the URL
 2. Enter your Home Assistant details:
-   - Home Assistant URL (e.g., `https://xxx.ui.nabu.casa`)
+   - Home Assistant URL (e.g., `https://xxx.ui.nabu.casa`, `http://homeassistant.local:8123`)
    - Long-lived Access Token (generated from Home Assistant under Profile > Security)
 3. Create rooms and assign entities
 4. Customize entity ordering and grouping
@@ -147,10 +158,12 @@ python3 app.py
 - **Version 1.0.1**
   - Added support for switches
   - Added support for scripts
+  - Added support for media players
   - Added support for removing entities no longer available in Home Assistant
   - Added new initial run functions to create .env file from CLI
   - Updated Settings Entities functionality to autosave on changes
   - Removed Setup page and replaced with standard Settings page
+  - Resolved various bugs
 - **Version v1.0.0**
   - Initial release
 
