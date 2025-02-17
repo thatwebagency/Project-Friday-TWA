@@ -50,7 +50,7 @@ Follow Clean Install, if you do not already have Project Friday installed. Follo
 - Media playback controls
 - Custom Spotify interface
 - Playlists, Top Artists & Top Songs
-- Searching
+- Searching Albums, Artists, Songs, Playlists
 
 ### 🏠 Supported Devices
 
