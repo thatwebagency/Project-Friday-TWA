@@ -5,6 +5,7 @@ let entityStates = {};
 let messageId = 1;
 let pendingUpdates = new Set();
 let messageHandlers = new Map(); // Store message handlers globally
+let selectedMediaPlayer = null; // Store the currently selected media player entity_id
 
 // Time functions
 function updateTime() {
@@ -304,62 +305,66 @@ function showToast(message, duration = 3000) {
 }
 
 function handleStateChange(data) {
-    const entityId = data.entity_id;
-    const newState = data.new_state;
-    const oldState = data.old_state;
+    if (!data || !data.entity_id || !data.new_state) {
+        console.error('Invalid state change data:', data);
+        return;
+    }
+
+    const { entity_id, new_state, old_state } = data;
     
     // Update our local state
-    entityStates[entityId] = newState;
+    entityStates[entity_id] = new_state;
     
     // Find and update the device card
-    const deviceCard = document.querySelector(`[data-device-id="${entityId}"]`);
+    const deviceCard = document.querySelector(`[data-device-id="${entity_id}"]`);
     if (deviceCard) {
-        if (entityId.startsWith('light.')) {
-            updateLightCard(entityId, newState);
-        } else if (entityId.startsWith('climate.')) {
-            updateClimateDisplay(entityId, newState);
-        } else if (entityId.startsWith('sensor.')) {
-            updateSensorCard(entityId, newState);
-        } else if (entityId.startsWith('switch.')) {
-            updateSwitchCard(entityId, newState);
-        } else if (entityId.startsWith('script.')) {
-            updateScriptPill(entityId, newState);
-        } else if (entityId.startsWith('media_player.')) {
-            updateMediaPlayerCard(entityId, newState);
+        if (entity_id.startsWith('light.')) {
+            updateLightCard(entity_id, new_state);
+        } else if (entity_id.startsWith('climate.')) {
+            updateClimateDisplay(entity_id, new_state);
+        } else if (entity_id.startsWith('sensor.')) {
+            updateSensorCard(entity_id, new_state);
+        } else if (entity_id.startsWith('switch.')) {
+            updateSwitchCard(entity_id, new_state);
+        } else if (entity_id.startsWith('script.')) {
+            updateScriptPill(entity_id, new_state);
+        } else if (entity_id.startsWith('media_player.')) {
+            updateMediaPlayerCard(entity_id, new_state);
         }
     }
     
+    // Always update control bar if this is the selected media player, regardless of card visibility
+    if (entity_id === selectedMediaPlayer) {
+        updateSpotifyControlBar(new_state);
+    }
+    
     // Only show notification if this entity was being updated AND it's not a script
-    if (pendingUpdates.has(entityId) && !entityId.startsWith('script.')) {
+    if (pendingUpdates.has(entity_id) && !entity_id.startsWith('script.')) {
         // Generate appropriate notification message
         let message = '';
-        if (entityId.startsWith('light.')) {
-            const friendlyName = newState.attributes?.friendly_name || 'Light';
-            if (newState.state === 'on' && oldState?.state === 'off') {
+        if (entity_id.startsWith('light.')) {
+            const friendlyName = new_state.attributes?.friendly_name || 'Light';
+            if (new_state.state === 'on' && old_state?.state === 'off') {
                 message = `${friendlyName} turned on`;
-            } else if (newState.state === 'off' && oldState?.state === 'on') {
+            } else if (new_state.state === 'off' && old_state?.state === 'on') {
                 message = `${friendlyName} turned off`;
-            } else if (newState.state === 'on' && newState.attributes?.brightness) {
-                const brightnessPercent = Math.round((newState.attributes.brightness / 255) * 100);
+            } else if (new_state.state === 'on' && new_state.attributes?.brightness) {
+                const brightnessPercent = Math.round((new_state.attributes.brightness / 255) * 100);
                 message = `${friendlyName} set to ${brightnessPercent}%`;
             }
-        } else if (entityId.startsWith('climate.')) {
-            const friendlyName = newState.attributes?.friendly_name || 'Climate';
-            if (newState.attributes?.temperature !== oldState?.attributes?.temperature) {
-                message = `${friendlyName} set to ${newState.attributes.temperature}°C`;
-            } else if (newState.state !== oldState?.state) {
-                const mode = newState.state.charAt(0).toUpperCase() + newState.state.slice(1);
+        } else if (entity_id.startsWith('climate.')) {
+            const friendlyName = new_state.attributes?.friendly_name || 'Climate';
+            if (new_state.attributes?.temperature !== old_state?.attributes?.temperature) {
+                message = `${friendlyName} set to ${new_state.attributes.temperature}°C`;
+            } else if (new_state.state !== old_state?.state) {
+                const mode = new_state.state.charAt(0).toUpperCase() + new_state.state.slice(1);
                 message = `${friendlyName} mode changed to ${mode}`;
-            } else if (newState.attributes?.fan_mode !== oldState?.attributes?.fan_mode) {
-                const fanMode = newState.attributes.fan_mode.charAt(0).toUpperCase() + 
-                               newState.attributes.fan_mode.slice(1);
-                message = `${friendlyName} fan set to ${fanMode}`;
             }
-        } else if (entityId.startsWith('switch.')) {
-            const friendlyName = newState.attributes?.friendly_name || 'Switch';
-            if (newState.state === 'on' && oldState?.state === 'off') {
+        } else if (entity_id.startsWith('switch.')) {
+            const friendlyName = new_state.attributes?.friendly_name || 'Switch';
+            if (new_state.state === 'on' && old_state?.state === 'off') {
                 message = `${friendlyName} turned on`;
-            } else if (newState.state === 'off' && oldState?.state === 'on') {
+            } else if (new_state.state === 'off' && old_state?.state === 'on') {
                 message = `${friendlyName} turned off`;
             }
         }
@@ -370,7 +375,7 @@ function handleStateChange(data) {
         }
         
         // Remove entity from pending updates
-        pendingUpdates.delete(entityId);
+        pendingUpdates.delete(entity_id);
     }
 }
 
@@ -424,22 +429,62 @@ async function loadRooms() {
         // Load devices for all rooms first
         await Promise.all(rooms.map(room => loadRoomDevices(room.id)));
 
-        // Generate room tabs HTML without empty state indication
+        // Check Spotify status
+        const isSpotifyConnected = await checkSpotifyStatus();
+        
+        // Generate room tabs HTML including Spotify if connected
         const roomsHTML = rooms.map(room => `
             <div class="room-tab ${room.id === rooms[0].id ? 'active' : ''}" 
                  data-room-id="${room.id}">
                 ${room.name}
             </div>
-        `).join('');
+        `).join('') + (isSpotifyConnected ? `
+            <div class="room-tab" data-room-id="spotify">
+            <i class="fab fa-spotify spotify-icon" aria-hidden="true"></i>
+                Spotify
+            </div>
+        ` : '');
 
         document.getElementById('roomsContainer').innerHTML = roomsHTML;
 
         document.querySelectorAll('.room-tab').forEach(tab => {
-            tab.addEventListener('click', () => {
+            tab.addEventListener('click', async () => {
                 document.querySelectorAll('.room-tab').forEach(t => 
                     t.classList.remove('active'));
                 tab.classList.add('active');
-                displayRoomDevices(tab.dataset.roomId);
+                
+                if (tab.dataset.roomId === 'spotify') {
+                    // Fetch media players before displaying Spotify room
+                    try {
+                        const response = await fetch('/api/media_players');
+                        const players = await response.json();
+                        
+                        // If no player is selected, try to find a playing one
+                        if (!selectedMediaPlayer) {
+                            // Find first playing player
+                            const playingPlayer = players.find(player => 
+                                entityStates[player.entity_id]?.state === 'playing'
+                            );
+                            
+                            // If no playing player found, find first available player
+                            const availablePlayer = players.find(player => 
+                                entityStates[player.entity_id]?.state !== 'unavailable'
+                            );
+                            
+                            // Select the playing player, or the first available one
+                            if (playingPlayer) {
+                                selectMediaPlayer(playingPlayer.entity_id);
+                            } else if (availablePlayer) {
+                                selectMediaPlayer(availablePlayer.entity_id);
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Error fetching media players:', error);
+                    }
+                    displaySpotifyRoom();
+                } else {
+                    displayRoomDevices(tab.dataset.roomId);
+                }
             });
         });
 
@@ -458,6 +503,375 @@ async function loadRooms() {
         // Hide loader even if there's an error
         hideLoader();
     }
+}
+
+function displayRoom(roomId) {
+    if (roomId === 'spotify') {
+        // If no player is selected, try to find a playing one
+        if (!selectedMediaPlayer) {
+            fetch('/api/media_players')
+                .then(response => response.json())
+                .then(players => {
+                    // Find first playing player
+                    const playingPlayer = players.find(player => 
+                        entityStates[player.entity_id]?.state === 'playing'
+                    );
+                    
+                    // If no playing player found, find first available player
+                    const availablePlayer = players.find(player => 
+                        entityStates[player.entity_id]?.state !== 'unavailable'
+                    );
+                    
+                    // Select the playing player, or the first available one
+                    if (playingPlayer) {
+                        selectMediaPlayer(playingPlayer.entity_id);
+                    } else if (availablePlayer) {
+                        selectMediaPlayer(availablePlayer.entity_id);
+                    }
+                })
+                .catch(error => console.error('Error fetching media players:', error));
+        }
+        
+        displaySpotifyRoom();
+        // Show control bar with current playback state if we have a selected player
+        if (selectedMediaPlayer && entityStates[selectedMediaPlayer]) {
+            const controlBar = document.querySelector('.spotify-control-bar');
+            if (controlBar) {
+                controlBar.classList.add('show');
+                updateSpotifyControlBar(entityStates[selectedMediaPlayer]);
+            }
+        }
+    } else {
+        // Hide control bar for non-Spotify rooms
+        const controlBar = document.querySelector('.spotify-control-bar');
+        if (controlBar) {
+            controlBar.classList.remove('show');
+        }
+    }
+    
+    // Update active room
+    document.querySelectorAll('.room-tab').forEach(tab => {
+        tab.classList.remove('active');
+        if (tab.dataset.roomId === roomId) {
+            tab.classList.add('active');
+        }
+    });
+
+    // Display devices for the selected room
+    displayRoomDevices(roomId);
+}
+
+function handleSpotifySearch(e) {
+    clearTimeout(window.searchTimeout);
+    const query = e.target.value.trim();
+    const roomContent = document.getElementById('roomContent');
+    
+    // Clear search results if query is empty
+    if (!query) {
+        loadSpotifyLibrary();
+        return;
+    }
+
+    // Add loading class
+    roomContent.querySelector('.spotify-content')?.classList.add('loading');
+
+    // Debounce search requests
+    window.searchTimeout = setTimeout(() => {
+        fetch(`/api/spotify/search?q=${encodeURIComponent(query)}`)
+            .then(response => {
+                if (!response.ok) throw new Error('Search failed');
+                return response.json();
+            })
+            .then(data => {
+                const spotifyContent = roomContent.querySelector('.spotify-content');
+                if (!spotifyContent) return;
+
+                spotifyContent.innerHTML = `
+                    ${data.tracks.length > 0 ? generateSpotifySection('Tracks', data.tracks, item => ({
+                        image: (item.album?.images && item.album.images.length > 0) ? item.album.images[0].url : '/static/images/default-spotify.jpg',
+                        title: item.name,
+                        subtitle: item.artists?.[0]?.name || 'Unknown Artist',
+                        uri: item.uri,
+                        type: 'track'
+                    })) : ''}
+
+                    ${data.artists.length > 0 ? generateSpotifySection('Artists', data.artists, item => ({
+                        image: (item.images && item.images.length > 0) ? item.images[0].url : '/static/images/default-spotify.jpg',
+                        title: item.name,
+                        subtitle: `${formatFollowers(item.followers?.total || 0)} followers`,
+                        uri: item.uri,
+                        type: 'artist'
+                    })) : ''}
+
+                    ${data.playlists.length > 0 ? generateSpotifySection('Playlists', data.playlists, item => ({
+                        image: (item.images && item.images.length > 0) ? item.images[0].url : '/static/images/default-spotify.jpg',
+                        title: item.name,
+                        subtitle: `${item.tracks?.total || 0} tracks`,
+                        uri: item.uri,
+                        type: 'playlist'
+                    })) : ''}
+                `;
+
+                spotifyContent.classList.remove('loading');
+                setupSpotifyGridItemListeners();
+            })
+            .catch(error => {
+                console.error('Search error:', error);
+                showToast('Search failed. Please try again.', 3000);
+                roomContent.querySelector('.spotify-content')?.classList.remove('loading');
+            });
+    }, 500); // Wait 500ms after last keystroke before searching
+}
+
+// Update displaySpotifyRoom to use the new function
+function displaySpotifyRoom() {
+    const roomContent = document.getElementById('roomContent');
+    
+    // Show loading state
+    roomContent.innerHTML = `
+        <div class="spotify-room">
+            <div class="spotify-search">
+                <div class="search-container">
+                    <input type="text" 
+                           id="spotifySearch" 
+                           placeholder="Search tracks, artists, or playlists..."
+                           class="spotify-search-input">
+                    <i class="fas fa-search search-icon"></i>
+                </div>
+            </div>
+            <div class="spotify-loader">
+                <div class="loader-spinner"></div>
+            </div>
+        </div>
+    `;
+
+    // Add search functionality
+    const searchInput = document.getElementById('spotifySearch');
+    searchInput.addEventListener('input', handleSpotifySearch);
+
+    // Load initial library
+    loadSpotifyLibrary();
+}
+
+function loadSpotifyLibrary() {
+    fetch('/api/spotify/library')
+        .then(response => {
+            if (!response.ok) throw new Error('Failed to load Spotify library');
+            return response.json();
+        })
+        .then(data => {
+            const roomContent = document.getElementById('roomContent');
+            roomContent.innerHTML = `
+                <div class="spotify-room">
+                    <div class="spotify-search">
+                        <div class="search-container">
+                            <input type="text" 
+                                   id="spotifySearch" 
+                                   placeholder="Search tracks, artists, or playlists..."
+                                   class="spotify-search-input">
+                            <i class="fas fa-search search-icon"></i>
+                        </div>
+                    </div>
+                    <div class="spotify-content">
+                        ${generateSpotifySection('Your Playlists', data.playlists, item => ({
+                            image: (item.images && item.images.length > 0) ? item.images[0].url : '/static/images/default-spotify.jpg',
+                            title: item.name,
+                            subtitle: `${item.tracks?.total || 0} tracks`,
+                            uri: item.uri,
+                            type: 'playlist'
+                        }))}
+
+                        ${generateSpotifySection('Top Artists', data.top_artists, item => ({
+                            image: (item.images && item.images.length > 0) ? item.images[0].url : '/static/images/default-spotify.jpg',
+                            title: item.name,
+                            subtitle: `${formatFollowers(item.followers?.total || 0)} followers`,
+                            uri: item.uri,
+                            type: 'artist'
+                        }))}
+
+                        ${generateSpotifySection('Top Tracks', data.top_tracks, item => ({
+                            image: (item.album?.images && item.album.images.length > 0) ? item.album.images[0].url : '/static/images/default-spotify.jpg',
+                            title: item.name,
+                            subtitle: item.artists?.[0]?.name || 'Unknown Artist',
+                            uri: item.uri,
+                            type: 'track'
+                        }))}
+                    </div>
+                    
+                    <div class="spotify-control-bar ${selectedMediaPlayer ? 'show' : ''}">
+                        <div class="spotify-track-info">
+                            <div class="spotify-track-image">
+                                <img src="/static/images/default-spotify.jpg" alt="Track Cover">
+                            </div>
+                            <div class="spotify-track-details">
+                                <span class="spotify-track-name">${selectedMediaPlayer ? (entityStates[selectedMediaPlayer]?.attributes?.media_title || 'Nothing Playing') : 'Select a player to begin'}</span>
+                                <span class="spotify-track-artist">${selectedMediaPlayer ? (entityStates[selectedMediaPlayer]?.attributes?.media_artist || '') : ''}</span>
+                            </div>
+                        </div>
+                        <div class="spotify-controls">
+                            <button class="spotify-control-button previous" ${!selectedMediaPlayer ? 'disabled' : ''}>
+                                <i class="fas fa-backward"></i>
+                            </button>
+                            <button class="spotify-control-button play-pause" ${!selectedMediaPlayer ? 'disabled' : ''}>
+                                <i class="fas fa-play"></i>
+                            </button>
+                            <button class="spotify-control-button next" ${!selectedMediaPlayer ? 'disabled' : ''}>
+                                <i class="fas fa-forward"></i>
+                            </button>
+                        </div>
+                        <div class="media-player-control">
+                            <button class="volume-control-button" ${!selectedMediaPlayer ? 'disabled' : ''}>
+                                <i class="fas fa-volume-high"></i>
+                            </button>
+                            <div class="volume-popover">
+                                <div class="volume-slider-container">
+                                    <input type="range" 
+                                           class="horizontal-volume-slider" 
+                                           min="0" 
+                                           max="100" 
+                                           value="${selectedMediaPlayer ? Math.round((entityStates[selectedMediaPlayer]?.attributes?.volume_level || 0) * 100) : 0}"
+                                           ${!selectedMediaPlayer ? 'disabled' : ''}>
+                                </div>
+                            </div>
+                            <span class="selected-player-name">${selectedMediaPlayer ? (entityStates[selectedMediaPlayer]?.attributes?.friendly_name || 'Media Player') : 'Select Player'}</span>
+                            <button class="media-player-selector">
+                                <i class="fas fa-chevron-down"></i>
+                            </button>
+                            <div class="media-player-popover">
+                                <div class="media-player-list">
+                                    <!-- Players will be populated here -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // Reattach search listener
+            const searchInput = document.getElementById('spotifySearch');
+            searchInput.addEventListener('input', handleSpotifySearch);
+
+            // Setup other listeners
+            setupSpotifyControlBar();
+            setupSpotifyGridItemListeners();
+
+            if (selectedMediaPlayer && entityStates[selectedMediaPlayer]) {
+                updateSpotifyControlBar(entityStates[selectedMediaPlayer]);
+            }
+        })
+        .catch(error => {
+            console.error('Error loading Spotify library:', error);
+            const roomContent = document.getElementById('roomContent');
+            roomContent.innerHTML = `
+                <div class="spotify-room">
+                    <div class="spotify-error">
+                        Failed to load Spotify library. Please try again later.
+                    </div>
+                </div>
+            `;
+        });
+}
+
+function generateSpotifySection(title, items, itemMapper) {
+    if (!items || items.length === 0) return '';
+    
+    return `
+        <div class="spotify-section">
+            <h2>${title}</h2>
+            <div class="spotify-grid">
+                ${items.map(item => {
+                    const { image, title, subtitle, uri, type } = itemMapper(item);
+                    return `
+                        <div class="spotify-grid-item" 
+                             data-uri="${uri}"
+                             data-type="${type}">
+                            <div class="grid-item-image">
+                                <img src="${image}" alt="${title}">
+                            </div>
+                            <div class="grid-item-info">
+                                <div class="grid-item-title">${title}</div>
+                                <div class="grid-item-subtitle">${subtitle}</div>
+                            </div>
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+        </div>
+    `;
+}
+
+function setupSpotifyGridItemListeners() {
+    document.querySelectorAll('.spotify-grid-item').forEach(item => {
+        item.addEventListener('click', async () => {
+            const uri = item.dataset.uri;
+            const type = item.dataset.type;
+            
+            console.log('Clicked item:', { uri, type, selectedMediaPlayer });
+            
+            if (!uri || !selectedMediaPlayer) {
+                showToast('Please select a media player first', 3000);
+                return;
+            }
+
+            try {
+                const msgId = getNextMessageId();
+                console.log('Sending play command:', {
+                    msgId,
+                    entityId: selectedMediaPlayer,
+                    uri,
+                    type
+                });
+                
+                pendingUpdates.add(selectedMediaPlayer);
+                
+                // Show loading state on the control bar
+                const controlBar = document.querySelector('.spotify-control-bar');
+                if (controlBar) controlBar.classList.add('loading');
+                
+                const message = {
+                    id: msgId,
+                    type: 'call_service',
+                    domain: 'media_player',
+                    service: 'play_media',
+                    target: {
+                        entity_id: selectedMediaPlayer
+                    },
+                    service_data: {
+                        media_content_id: uri,
+                        media_content_type: 'music',
+                        enqueue: type === 'track' ? 'play' : 'replace'
+                    }
+                };
+                
+                console.log('WebSocket message:', message);
+                haSocket.send(JSON.stringify(message));
+
+                const response = await handleCommandResponse(msgId, selectedMediaPlayer);
+                console.log('Command response:', response);
+                
+                showToast(`Playing ${type}...`);
+            } catch (error) {
+                console.error('Error playing media:', error);
+                showToast(`Failed to play ${type}: ${error.message}`, 5000);
+                pendingUpdates.delete(selectedMediaPlayer);
+                
+                // Remove loading state on error
+                const controlBar = document.querySelector('.spotify-control-bar');
+                if (controlBar) controlBar.classList.remove('loading');
+            }
+        });
+    });
+}
+
+// Helper function to format follower counts
+function formatFollowers(count) {
+    if (count >= 1000000) {
+        return `${(count / 1000000).toFixed(1)}M`;
+    }
+    if (count >= 1000) {
+        return `${(count / 1000).toFixed(1)}K`;
+    }
+    return count.toString();
 }
 
 async function loadRoomDevices(roomId) {
@@ -485,7 +899,6 @@ function displayRoomDevices(roomId) {
         other: devices.filter(d => !['light', 'climate', 'sensor', 'switch', 'script', 'media_player'].includes(d.type))
             .sort((a, b) => a.order - b.order),
     };
-
     // Add scripts section if there are scripts
     const scriptsHTML = categories.scripts.length > 0 ? `
         <div class="scripts-section">
@@ -654,6 +1067,9 @@ function displayRoomDevices(roomId) {
             await executeScript(scriptId, pill);
         });
     });
+
+    // Add this line to set up media player listeners
+    setupMediaPlayerListeners();
 }
 
 function updateDeviceCard(card, state) {
@@ -1361,6 +1777,8 @@ document.addEventListener('DOMContentLoaded', () => {
     setInterval(updateWeather, 300000);
 
     loadRooms();
+
+    setupSpotifyControlBar();
 });
 
 // Add at the start of the file
@@ -1504,7 +1922,7 @@ function updateMediaPlayerCard(entityId, state) {
     // Remove loader if it exists
     const loader = card.querySelector('.card-loader');
     if (loader) {
-        loader.remove();
+        loader.style.display = 'none';
     }
 
     const mediaTitle = card.querySelector('.media-title');
@@ -1553,30 +1971,42 @@ function updateMediaPlayerCard(entityId, state) {
 function setupMediaPlayerListeners() {
     document.querySelectorAll('.media-player-card').forEach(card => {
         const deviceId = card.dataset.deviceId;
-        const playPauseBtn = card.querySelector('.play-pause');
-        const previousBtn = card.querySelector('.previous');
-        const nextBtn = card.querySelector('.next');
+        const playPauseBtn = card.querySelector('.media-btn.play-pause');
+        const previousBtn = card.querySelector('.media-btn.previous');
+        const nextBtn = card.querySelector('.media-btn.next');
         const volumeSlider = card.querySelector('.volume-slider');
         
-        playPauseBtn?.addEventListener('click', () => {
-            const state = entityStates[deviceId];
-            if (!state) return;
-            const service = state.state === 'playing' ? 'media_pause' : 'media_play';
-            sendMediaCommand(deviceId, service);
-        });
+        if (playPauseBtn) {
+            playPauseBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const state = entityStates[deviceId];
+                if (!state) return;
+                const service = state.state === 'playing' ? 'media_pause' : 'media_play';
+                sendMediaCommand(deviceId, service);
+            });
+        }
         
-        previousBtn?.addEventListener('click', () => {
-            sendMediaCommand(deviceId, 'media_previous_track');
-        });
+        if (previousBtn) {
+            previousBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                sendMediaCommand(deviceId, 'media_previous_track');
+            });
+        }
         
-        nextBtn?.addEventListener('click', () => {
-            sendMediaCommand(deviceId, 'media_next_track');
-        });
+        if (nextBtn) {
+            nextBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                sendMediaCommand(deviceId, 'media_next_track');
+            });
+        }
         
-        volumeSlider?.addEventListener('change', (e) => {
-            const volume = parseInt(e.target.value) / 100;
-            sendVolumeCommand(deviceId, volume);
-        });
+        if (volumeSlider) {
+            volumeSlider.addEventListener('change', (e) => {
+                e.stopPropagation();
+                const volume = parseInt(e.target.value) / 100;
+                sendVolumeCommand(deviceId, volume);
+            });
+        }
     });
 }
 
@@ -1586,10 +2016,14 @@ async function sendMediaCommand(entityId, service) {
         return;
     }
 
-    const card = document.querySelector(`[data-device-id="${entityId}"]`);
-    if (!card) return;
+    const card = document.querySelector(`.media-player-card[data-device-id="${entityId}"]`);
+    const controlBar = document.querySelector('.spotify-control-bar');
+    const loader = card?.querySelector('.card-loader');
 
-    showLoader(card);
+    // Show loading state
+    if (loader) loader.style.display = 'flex';
+    if (controlBar && entityId === selectedMediaPlayer) controlBar.classList.add('loading');
+
     pendingUpdates.add(entityId);
     const msgId = getNextMessageId();
 
@@ -1605,13 +2039,14 @@ async function sendMediaCommand(entityId, service) {
         }));
 
         await handleCommandResponse(msgId, entityId);
+        // Don't hide loader here - wait for state change
     } catch (error) {
         console.error('Error controlling media player:', error);
         showToast(`Failed to control media player: ${error.message}`, 5000);
-        // Remove loader and pending update on error
-        const loader = card.querySelector('.card-loader');
-        if (loader) loader.remove();
         pendingUpdates.delete(entityId);
+        // Hide loader on error
+        if (loader) loader.style.display = 'none';
+        if (controlBar && entityId === selectedMediaPlayer) controlBar.classList.remove('loading');
     }
 }
 
@@ -1675,23 +2110,27 @@ function getMediaPlayerCard(device, state) {
                 </div>
                 <div class="bottom-media-controls">
                     <div class="media-controls">
-                        <button class="media-btn previous" ${!hasMedia ? 'disabled' : ''}>
+                        <button class="media-btn previous" data-device-id="${device.id}" ${!hasMedia ? 'disabled' : ''}>
                             <i class="fa-solid fa-backward"></i>
                         </button>
-                        <button class="media-btn play-pause" ${!hasMedia ? 'disabled' : ''}>
+                        <button class="media-btn play-pause" data-device-id="${device.id}" ${!hasMedia ? 'disabled' : ''}>
                             <i class="fa-solid ${state.state === 'playing' ? 'fa-pause' : 'fa-play'}"></i>
                         </button>
-                        <button class="media-btn next" ${!hasMedia ? 'disabled' : ''}>
+                        <button class="media-btn next" data-device-id="${device.id}" ${!hasMedia ? 'disabled' : ''}>
                             <i class="fa-solid fa-forward"></i>
                         </button>
                     </div>
                     <div class="volume-control">
                         <i class="fa-solid fa-volume-high"></i>
                         <input type="range" class="volume-slider" 
-                            value="${Math.round((state.attributes?.volume_level || 0) * 100)}" 
-                            min="0" max="100">
+                               data-device-id="${device.id}"
+                               value="${Math.round((state.attributes?.volume_level || 0) * 100)}" 
+                               min="0" max="100">
                     </div>
                 </div>
+            </div>
+            <div class="card-loader" style="display: none;">
+                <div class="loader-spinner"></div>
             </div>
         </div>
     `;
@@ -1711,3 +2150,374 @@ document.addEventListener('DOMContentLoaded', () => {
         subtree: true
     });
 });
+
+// Add these new functions for Spotify functionality
+async function checkSpotifyStatus() {
+    try {
+        const response = await fetch('/api/spotify/status');
+        const data = await response.json();
+        return data.connected;
+    } catch (error) {
+        console.error('Error checking Spotify status:', error);
+        return false;
+    }
+}
+
+// Remove the duplicate setupSpotifyControlBar function and keep this version
+function setupSpotifyControlBar() {
+    const controlBar = document.querySelector('.spotify-control-bar');
+    if (!controlBar) return;
+
+    // Add media player selector button listener
+    const playerSelector = controlBar.querySelector('.media-player-selector');
+    if (playerSelector) {
+        playerSelector.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            showMediaPlayerPopover();
+        });
+    }
+
+    // Close popover when clicking outside
+    document.addEventListener('click', (e) => {
+        const popover = document.querySelector('.media-player-popover');
+        const selector = document.querySelector('.media-player-selector');
+        
+        if (popover && selector && 
+            !popover.contains(e.target) && 
+            !selector.contains(e.target)) {
+            hideMediaPlayerPopover();
+        }
+    });
+
+    // Control button listeners
+    const playPauseBtn = controlBar.querySelector('.play-pause');
+    const previousBtn = controlBar.querySelector('.previous');
+    const nextBtn = controlBar.querySelector('.next');
+
+    if (playPauseBtn) playPauseBtn.addEventListener('click', togglePlayback);
+    if (previousBtn) previousBtn.addEventListener('click', previousTrack);
+    if (nextBtn) nextBtn.addEventListener('click', nextTrack);
+
+    // Add volume control button listener
+    const volumeButton = controlBar.querySelector('.volume-control-button');
+    const volumePopover = controlBar.querySelector('.volume-popover');
+    const volumeSlider = controlBar.querySelector('.horizontal-volume-slider');
+
+    if (volumeButton) {
+        volumeButton.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            volumePopover.classList.toggle('show');
+        });
+    }
+
+    if (volumeSlider) {
+        // Update volume while sliding
+        volumeSlider.addEventListener('input', (e) => {
+            const volume = parseInt(e.target.value) / 100;
+            // Update volume icon based on level
+            updateVolumeIcon(volume);
+        });
+
+        // Send update when sliding ends
+        volumeSlider.addEventListener('change', (e) => {
+            const volume = parseInt(e.target.value) / 100;
+            if (selectedMediaPlayer) {
+                sendVolumeCommand(selectedMediaPlayer, volume);
+            }
+        });
+    }
+
+    // Close volume popover when clicking outside
+    document.addEventListener('click', (e) => {
+        if (volumePopover && 
+            !volumePopover.contains(e.target) && 
+            !volumeButton.contains(e.target)) {
+            volumePopover.classList.remove('show');
+        }
+    });
+}
+
+function showMediaPlayerPopover() {
+    const popover = document.querySelector('.media-player-popover');
+    if (!popover) return;
+
+    // Show the popover
+    popover.classList.add('show');
+
+    // Show loading state first
+    popover.querySelector('.media-player-list').innerHTML = `
+        <div class="loading-players">
+            <div class="loader-spinner"></div>
+        </div>
+    `;
+
+    // Fetch available media players from the endpoint
+    fetch('/api/media_players')
+        .then(response => response.json())
+        .then(players => {
+            // Filter out unavailable players
+            const availablePlayers = players.filter(player => {
+                const state = entityStates[player.entity_id];
+                return state && state.state !== 'unavailable';
+            });
+
+            // Generate the media player list HTML
+            const mediaPlayerListHTML = availablePlayers.length > 0 ? 
+                availablePlayers.map(player => {
+                    const state = entityStates[player.entity_id];
+                    const isSelected = player.entity_id === selectedMediaPlayer;
+                    return `
+                        <div class="media-player-item ${isSelected ? 'selected' : ''}" 
+                             data-entity-id="${player.entity_id}">
+                            <div class="media-player-icon">
+                                <i class="fas fa-${player.entity_id.includes('spotify') ? 'spotify' : 'music'}"></i>
+                            </div>
+                            <div class="media-player-info">
+                                <div class="media-player-name">${player.name}</div>
+                                <div class="media-player-state">${state ? state.state : 'unknown'}</div>
+                            </div>
+                            ${isSelected ? '<div class="selected-check"><i class="fas fa-check"></i></div>' : ''}
+                        </div>
+                    `;
+                }).join('') : 
+                '<div class="no-players">No media players available</div>';
+
+            // Update the popover content
+            popover.querySelector('.media-player-list').innerHTML = mediaPlayerListHTML;
+
+            // Add click handlers for player selection
+            popover.querySelectorAll('.media-player-item').forEach(item => {
+                item.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    selectMediaPlayer(item.dataset.entityId);
+                    hideMediaPlayerPopover();
+                });
+            });
+        })
+        .catch(error => {
+            console.error('Error loading media players:', error);
+            popover.querySelector('.media-player-list').innerHTML = `
+                <div class="error-message">Failed to load media players</div>
+            `;
+        });
+}
+
+function hideMediaPlayerPopover() {
+    const popover = document.querySelector('.media-player-popover');
+    if (popover) {
+        popover.classList.remove('show');
+    }
+}
+
+function selectMediaPlayer(entityId) {
+    selectedMediaPlayer = entityId;
+    const state = entityStates[entityId];
+    
+    // Update the selected player name in the control bar
+    const controlBar = document.querySelector('.spotify-control-bar');
+    if (!controlBar) return;
+    
+    const playerName = controlBar.querySelector('.selected-player-name');
+    if (playerName) {
+        playerName.textContent = state?.attributes?.friendly_name || 'Media Player';
+    }
+    
+    // Enable all control buttons when a player is selected
+    const controls = controlBar.querySelectorAll('.spotify-control-button');
+    controls.forEach(control => {
+        control.disabled = false;
+    });
+    
+    // Show the control bar
+    controlBar.classList.add('show');
+    
+    // Update the control bar with the current state
+    if (state) {
+        updateSpotifyControlBar(state);
+    }
+}
+
+// Update the updateSpotifyControlBar function to handle HA media player states
+function updateSpotifyControlBar(state) {
+    const controlBar = document.querySelector('.spotify-control-bar');
+    if (!controlBar) return;
+
+    // Remove loading state if present
+    controlBar.classList.remove('loading');
+
+    // Update track info
+    const trackImage = controlBar.querySelector('.spotify-track-image img');
+    const trackName = controlBar.querySelector('.spotify-track-name');
+    const trackArtist = controlBar.querySelector('.spotify-track-artist');
+    const playPauseButton = controlBar.querySelector('.play-pause i');
+    const controls = controlBar.querySelectorAll('.spotify-control-button');
+
+    if (state && state.attributes) {
+        // Update track image
+        if (state.attributes.entity_picture) {
+            trackImage.src = `/api/media_proxy${state.attributes.entity_picture}`;
+        } else {
+            trackImage.src = '/static/images/default-spotify.jpg';
+        }
+
+        // Update track info
+        trackName.textContent = state.attributes.media_title || 'Nothing Playing';
+        trackArtist.textContent = state.attributes.media_artist || '';
+
+        // Update play/pause button
+        if (state.state === 'playing') {
+            playPauseButton.className = 'fas fa-pause';
+        } else if (state.state === 'paused') {
+            playPauseButton.className = 'fas fa-play';
+        } else {
+            playPauseButton.className = 'fas fa-play';
+        }
+
+        // Enable/disable controls based on player state
+        const hasMedia = !!state.attributes.media_title;
+        const isAvailable = state.state !== 'unavailable';
+        controls.forEach(control => {
+            control.disabled = !hasMedia || !isAvailable;
+        });
+
+        // Show the control bar if we have a selected player
+        if (selectedMediaPlayer) {
+            controlBar.classList.add('show');
+        }
+    } else {
+        // Reset to default state if no state or attributes
+        trackImage.src = '/static/images/default-spotify.jpg';
+        trackName.textContent = 'Nothing Playing';
+        trackArtist.textContent = '';
+        playPauseButton.className = 'fas fa-play';
+        
+        // Disable all controls
+        controls.forEach(button => {
+            button.disabled = true;
+        });
+    }
+
+    // Update selected player name if it exists
+    const playerName = controlBar.querySelector('.selected-player-name');
+    if (playerName && selectedMediaPlayer) {
+        playerName.textContent = state?.attributes?.friendly_name || 'Media Player';
+    }
+
+    // Update volume slider and icon if they exist
+    const volumeSlider = controlBar.querySelector('.horizontal-volume-slider');
+    if (volumeSlider && state.attributes?.volume_level !== undefined) {
+        const volume = Math.round(state.attributes.volume_level * 100);
+        volumeSlider.value = volume;
+        updateVolumeIcon(state.attributes.volume_level);
+    }
+}
+
+// Update the togglePlayback function to use the sendMediaCommand
+function togglePlayback() {
+    if (!selectedMediaPlayer) return;
+    const state = entityStates[selectedMediaPlayer];
+    if (!state) return;
+    
+    const service = state.state === 'playing' ? 'media_pause' : 'media_play';
+    sendMediaCommand(selectedMediaPlayer, service);
+}
+
+function previousTrack() {
+    if (!selectedMediaPlayer) return;
+    sendMediaCommand(selectedMediaPlayer, 'media_previous_track');
+}
+
+function nextTrack() {
+    if (!selectedMediaPlayer) return;
+    sendMediaCommand(selectedMediaPlayer, 'media_next_track');
+}
+
+// Add after updateWeather() function
+async function updateSpotifyStatus() {
+    try {
+        const response = await fetch('/api/spotify/status');
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        const spotifySection = document.querySelector('.spotify-section');
+        if (!spotifySection) return;
+        
+        if (!data.connected) {
+            spotifySection.innerHTML = `
+                <div class="section-title">
+                    <i class="fab fa-spotify spotify-icon"></i>
+                    <span>Spotify</span>
+                </div>
+                <div class="spotify-error">
+                    Spotify not configured. Visit settings to set it up.
+                </div>
+            `;
+            return;
+        }
+        
+        // If connected, update playback state and load library
+        updatePlaybackState();
+        loadSpotifyLibrary();  // Add this line to load the library
+    } catch (error) {
+        console.error('Error checking Spotify status:', error);
+        const spotifySection = document.querySelector('.spotify-section');
+        if (spotifySection) {
+            spotifySection.innerHTML = `
+                <div class="section-title">
+                    <i class="fab fa-spotify spotify-icon"></i>
+                    <span>Spotify</span>
+                </div>
+                <div class="spotify-error">
+                    Unable to connect to Spotify. Please try again later.
+                </div>
+            `;
+        }
+    }
+}
+
+// Helper function to generate grid sections
+function generateGridSection(title, items, itemMapper) {
+    if (!items || items.length === 0) return '';
+    
+    return `
+        <div class="spotify-grid-section">
+            <h3>${title}</h3>
+            <div class="spotify-grid">
+                ${items.map(item => {
+                    const { image, title, subtitle, uri } = itemMapper(item);
+                    return `
+                        <div class="spotify-grid-item" data-uri="${uri}">
+                            <div class="grid-item-image">
+                                <img src="${image}" alt="${title}" onerror="this.src='/static/images/default-spotify.jpg'">
+                            </div>
+                            <div class="grid-item-info">
+                                <div class="grid-item-title">${title}</div>
+                                <div class="grid-item-subtitle">${subtitle}</div>
+                            </div>
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+        </div>
+    `;
+}
+
+// Add function to update volume icon
+function updateVolumeIcon(volume) {
+    const volumeButton = document.querySelector('.volume-control-button i');
+    if (!volumeButton) return;
+
+    if (volume === 0) {
+        volumeButton.className = 'fas fa-volume-mute';
+    } else if (volume < 0.5) {
+        volumeButton.className = 'fas fa-volume-low';
+    } else {
+        volumeButton.className = 'fas fa-volume-high';
+    }
+}
