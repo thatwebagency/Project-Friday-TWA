@@ -2943,7 +2943,7 @@ function showAlbumView(albumId, fromArtist = false) {
                 <div class="album-tracks">
                     ${album.tracks.items.map((track, index) => `
                         <div class="playlist-track" data-uri="${track.uri}" data-context-uri="${album.uri}">
-                            <span class="track-number">${index + 1}</span>
+                            <span class="track-number" style="padding-right: 20px;">${index + 1}</span>
                             <div class="track-details">
                                 <div class="track-title">${track.name}</div>
                                 <div class="track-artist">${track.artists.map(a => a.name).join(', ')}</div>
