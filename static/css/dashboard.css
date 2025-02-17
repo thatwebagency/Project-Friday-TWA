@@ -824,3 +824,365 @@
     opacity: 0.6;
     pointer-events: none;
 }
+
+/* Playlist View Styles */
+.playlist-view {
+    display: none;
+    flex-direction: column;
+    height: 100%;
+}
+
+.playlist-view.show {
+    display: flex;
+}
+
+button.playlist-play-button {
+    background: black;
+}
+
+.playlist-header {
+    display: flex;
+    gap: 24px;
+    padding: 24px 0;
+    align-items: flex-end;
+}
+
+.playlist-cover {
+    width: 232px;
+    height: 232px;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.playlist-cover img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.playlist-info {
+    flex: 1;
+}
+
+.playlist-title {
+    font-size: 32px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    color: var(--text-color);
+}
+
+.playlist-meta {
+    color: var(--text-color-secondary);
+    font-size: 14px;
+    margin-bottom: 16px;
+}
+
+.playlist-play-button {
+    background: var(--accent-color);
+    color: white;
+    border: none;
+    border-radius: 24px;
+    padding: 12px 32px;
+    font-size: 16px;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+}
+
+.playlist-play-button:hover {
+    transform: scale(1.02);
+    background: var(--accent-color-dark);
+}
+
+.playlist-tracks {
+    margin-top: 24px;
+}
+
+.playlist-track {
+    display: flex;
+    align-items: center;
+    padding: 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.playlist-track:hover {
+    background-color: var(--background-color-light);
+}
+
+.track-number {
+    text-align: right;
+    color: var(--text-color-secondary);
+    font-variant-numeric: tabular-nums;
+}
+
+.track-image {
+    width: 40px;
+    height: 40px;
+    border-radius: 4px;
+    margin: 0 16px;
+}
+
+button.artist-play-button {
+    background: black;
+}
+
+.track-details {
+    flex: 1;
+    min-width: 0;
+}
+
+.track-title {
+    color: var(--text-color);
+    font-weight: 500;
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.track-artist {
+    color: var(--text-color-secondary);
+    font-size: 14px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.track-duration {
+    color: var(--text-color-secondary);
+    font-variant-numeric: tabular-nums;
+    margin-left: 16px;
+}
+
+.back-button {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-color);
+    background: none;
+    border: none;
+    padding: 8px 16px;
+    cursor: pointer;
+    font-size: 16px;
+    margin-bottom: 16px;
+}
+
+.back-button:hover {
+    color: var(--accent-color);
+}
+
+/* Artist View Styles */
+.artist-view {
+    display: none;
+    flex-direction: column;
+    height: 100%;
+}
+
+.artist-view.show {
+    display: flex;
+}
+
+.artist-header {
+    display: flex;
+    gap: 24px;
+    padding: 24px 0;
+    align-items: flex-end;
+}
+
+.artist-cover {
+    width: 232px;
+    height: 232px;
+    border-radius: 50%;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.artist-cover img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.artist-info {
+    flex: 1;
+}
+
+.artist-name {
+    font-size: 32px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    color: var(--text-color);
+}
+
+.artist-meta {
+    color: var(--text-color-secondary);
+    font-size: 14px;
+    margin-bottom: 16px;
+}
+
+.artist-play-button {
+    background: var(--accent-color);
+    color: white;
+    border: none;
+    border-radius: 24px;
+    padding: 12px 32px;
+    font-size: 16px;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+}
+
+.artist-play-button:hover {
+    transform: scale(1.02);
+    background: var(--accent-color-dark);
+}
+
+.artist-sections {
+    margin-top: 32px;
+}
+
+.artist-section {
+    margin-bottom: 32px;
+}
+
+.section-title {
+    font-size: 24px;
+    font-weight: 700;
+    margin-bottom: 16px;
+    color: var(--text-color);
+}
+
+.albums-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 24px;
+    margin-top: 16px;
+}
+
+.album-item {
+    cursor: pointer;
+    transition: transform 0.2s ease;
+}
+
+.album-item:hover {
+    transform: translateY(-4px);
+}
+
+.album-cover {
+    width: 100%;
+    aspect-ratio: 1;
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 8px;
+}
+
+.album-cover img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.album-name {
+    font-weight: 500;
+    margin-bottom: 4px;
+    color: var(--text-color);
+}
+
+.album-year {
+    font-size: 14px;
+    color: var(--text-color-secondary);
+}
+
+/* Album View Styles */
+.album-view {
+    display: none;
+    flex-direction: column;
+    height: 100%;
+}
+
+.album-view.show {
+    display: flex;
+}
+
+button.album-play-button {
+    background: black;
+}
+
+button.album-play-button:hover {
+    background: black;
+}
+
+button.playlist-play-button:hover {
+    background: black;
+}
+
+.album-header {
+    display: flex;
+    gap: 24px;
+    padding: 24px 0;
+    align-items: flex-end;
+}
+
+.album-cover {
+    width: 232px;
+    height: 232px;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.album-cover img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.album-info {
+    flex: 1;
+}
+
+.album-title {
+    font-size: 32px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    color: var(--text-color);
+}
+
+.album-meta {
+    color: var(--text-color-secondary);
+    font-size: 14px;
+    margin-bottom: 16px;
+}
+
+.album-play-button {
+    background: var(--accent-color);
+    color: white;
+    border: none;
+    border-radius: 24px;
+    padding: 12px 32px;
+    font-size: 16px;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+}
+
+.album-play-button:hover {
+    transform: scale(1.02);
+    background: var(--accent-color-dark);
+}
+
+.album-tracks {
+    margin-top: 24px;
+}

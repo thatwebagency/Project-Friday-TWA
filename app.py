@@ -998,18 +998,54 @@ def spotify_search():
 
         sp = get_spotify_client()
         
-        # Search across tracks, artists, and playlists
+        # Add albums to the search types
         results = sp.search(
             q=query,
             limit=8,  # Limit results per category
-            type='track,artist,playlist'
+            type='track,artist,playlist,album'  # Added album to search types
         )
         
         return jsonify({
             'tracks': results['tracks']['items'],
             'artists': results['artists']['items'],
-            'playlists': results['playlists']['items']
+            'playlists': results['playlists']['items'],
+            'albums': results['albums']['items']  # Add albums to response
         })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/spotify/playlist/<playlist_id>')
+def get_playlist_details(playlist_id):
+    try:
+        sp = get_spotify_client()
+        playlist = sp.playlist(playlist_id)
+        return jsonify(playlist)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/spotify/artist/<artist_id>')
+def get_artist_details(artist_id):
+    try:
+        sp = get_spotify_client()
+        # Get artist details, top tracks, and albums
+        artist = sp.artist(artist_id)
+        top_tracks = sp.artist_top_tracks(artist_id)
+        albums = sp.artist_albums(artist_id, album_type='album,single', limit=20)
+        
+        return jsonify({
+            'artist': artist,
+            'top_tracks': top_tracks['tracks'],
+            'albums': albums['items']
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/spotify/album/<album_id>')
+def get_album_details(album_id):
+    try:
+        sp = get_spotify_client()
+        album = sp.album(album_id)
+        return jsonify(album)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
