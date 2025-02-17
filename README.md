@@ -125,6 +125,7 @@ python app.py
 When you first run the application, you'll be prompted via command line to enter:
 - Weather API key from [weatherapi.com](https://www.weatherapi.com)
 - Your location (city name or coordinates)
+- Your Client ID and Secret Key from your Spotify Developer app (Not required to run Project Friday)
 
 These will be automatically saved to a `.env` file.
 
@@ -132,6 +133,24 @@ These will be automatically saved to a `.env` file.
 The application will be available at:
 - Local: `http://localhost:8165`
 - Network: `http://LOCALNETWORKIP:8165`
+
+### Spotify Setup
+- Go to https://developer.spotify.com/dashboard
+- Create a new app
+- Give the app a name
+- Set the redirect URL as http://localhost:8888
+- Select WEB API
+- Save
+- Click the new app and click "Settings"
+- Copy your Client ID and Secret
+- Run Project Friday
+- Enter "y" when asked if you want to setup Spotify
+- Enter your Client ID and Secret
+- Paste the link shown in your browser, Accept access
+- Copy the redirected URL in the URL bar
+- Paste back in the Project Friday CLI and press enter
+- Spotify is now integrated
+
 
 ### First-Time Setup
 
