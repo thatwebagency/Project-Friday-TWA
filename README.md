@@ -51,6 +51,14 @@ Follow Clean Install, if you do not already have Project Friday installed. Follo
   - Weather information integration
   - Time and date display
 
+### Spotify integration
+- Directly connected to your Spotify account (Premium required)
+- Player selection (From Home Assistant)
+- Media playback controls
+- Custom Spotify interface
+- Playlists, Top Artists & Top Songs
+- Searching
+
 ### 🏠 Supported Devices
 
 #### Scripts
@@ -134,7 +142,7 @@ The application will be available at:
 - Local: `http://localhost:8165`
 - Network: `http://LOCALNETWORKIP:8165`
 
-### Spotify Setup
+### Spotify Setup - PREMIUM ACCOUNT REQUIRED
 - Go to https://developer.spotify.com/dashboard
 - Create a new app
 - Give the app a name
