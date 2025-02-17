@@ -577,12 +577,12 @@ function handleSpotifySearch(e) {
 
     // Debounce search requests
     window.searchTimeout = setTimeout(() => {
-        fetch(`/api/spotify/search?q=${encodeURIComponent(query)}`)
+    fetch(`/api/spotify/search?q=${encodeURIComponent(query)}`)
             .then(response => {
                 if (!response.ok) throw new Error('Search failed');
                 return response.json();
             })
-            .then(data => {
+        .then(data => {
                 const spotifyContent = roomContent.querySelector('.spotify-content');
                 if (!spotifyContent) return;
 
@@ -593,6 +593,14 @@ function handleSpotifySearch(e) {
                         subtitle: item.artists?.[0]?.name || 'Unknown Artist',
                         uri: item.uri,
                         type: 'track'
+                    })) : ''}
+
+                    ${data.artists.length > 0 ? generateSpotifySection('Albums', data.albums, item => ({
+                        image: (item.images && item.images.length > 0) ? item.images[0].url : '/static/images/default-spotify.jpg',
+                        title: item.name,
+                        subtitle: item.artists?.[0]?.name || 'Unknown Artist',
+                        uri: item.uri,
+                        type: 'album'
                     })) : ''}
 
                     ${data.artists.length > 0 ? generateSpotifySection('Artists', data.artists, item => ({
@@ -614,8 +622,8 @@ function handleSpotifySearch(e) {
 
                 spotifyContent.classList.remove('loading');
                 setupSpotifyGridItemListeners();
-            })
-            .catch(error => {
+        })
+        .catch(error => {
                 console.error('Search error:', error);
                 showToast('Search failed. Please try again.', 3000);
                 roomContent.querySelector('.spotify-content')?.classList.remove('loading');
@@ -654,6 +662,11 @@ function displaySpotifyRoom() {
 }
 
 function loadSpotifyLibrary() {
+    const searchBar = document.querySelector('.spotify-search');
+    
+    // Show search bar
+    searchBar.style.display = 'block';
+    
     fetch('/api/spotify/library')
         .then(response => {
             if (!response.ok) throw new Error('Failed to load Spotify library');
@@ -779,21 +792,28 @@ function generateSpotifySection(title, items, itemMapper) {
         <div class="spotify-section">
             <h2>${title}</h2>
             <div class="spotify-grid">
-                ${items.map(item => {
-                    const { image, title, subtitle, uri, type } = itemMapper(item);
-                    return `
-                        <div class="spotify-grid-item" 
-                             data-uri="${uri}"
-                             data-type="${type}">
-                            <div class="grid-item-image">
-                                <img src="${image}" alt="${title}">
+                ${items.filter(item => item).map(item => {
+                    try {
+                        const { image, title, subtitle, uri, type } = itemMapper(item);
+                        return `
+                            <div class="spotify-grid-item" 
+                                 data-uri="${uri || ''}"
+                                 data-type="${type || ''}">
+                                <div class="grid-item-image">
+                                    <img src="${image || '/static/images/default-spotify.jpg'}" 
+                                         alt="${title || 'Unknown'}"
+                                         onerror="this.src='/static/images/default-spotify.jpg'">
+                                </div>
+                                <div class="grid-item-info">
+                                    <div class="grid-item-title">${title || 'Unknown'}</div>
+                                    <div class="grid-item-subtitle">${subtitle || ''}</div>
+                                </div>
                             </div>
-                            <div class="grid-item-info">
-                                <div class="grid-item-title">${title}</div>
-                                <div class="grid-item-subtitle">${subtitle}</div>
-                            </div>
-                        </div>
-                    `;
+                        `;
+                    } catch (error) {
+                        console.error('Error mapping Spotify item:', error);
+                        return '';
+                    }
                 }).join('')}
             </div>
         </div>
@@ -810,6 +830,10 @@ function setupSpotifyGridItemListeners() {
             
             if (!uri || !selectedMediaPlayer) {
                 showToast('Please select a media player first', 3000);
+                return;
+            }
+
+            if (type === 'playlist' || type === 'artist' || type === 'album') {
                 return;
             }
 
@@ -2520,4 +2544,475 @@ function updateVolumeIcon(volume) {
     } else {
         volumeButton.className = 'fas fa-volume-high';
     }
+}
+
+function showPlaylistView(playlistId) {
+    const spotifyContent = document.querySelector('.spotify-content');
+    const searchBar = document.querySelector('.spotify-search');
+    
+    // Hide search bar
+    searchBar.style.display = 'none';
+    
+    spotifyContent.innerHTML = `
+        <div class="playlist-view">
+            <button class="back-button">
+                <i class="fas fa-arrow-left"></i>
+                Back
+            </button>
+            <div class="playlist-loader">
+                <div class="loader-spinner"></div>
+            </div>
+        </div>
+    `;
+
+    // Show the playlist view
+    const playlistView = spotifyContent.querySelector('.playlist-view');
+    playlistView.classList.add('show');
+
+    // Fetch playlist details
+    fetch(`/api/spotify/playlist/${playlistId}`)
+        .then(response => response.json())
+        .then(playlist => {
+            const trackCount = playlist.tracks.total;
+            const duration = formatPlaylistDuration(playlist.tracks.items);
+            
+            playlistView.innerHTML = `
+                <button class="back-button">
+                    <i class="fas fa-arrow-left"></i>
+                    Back
+                </button>
+                <div class="playlist-header">
+                    <div class="playlist-cover">
+                        <img src="${playlist.images[0]?.url || '/static/images/default-playlist.jpg'}" 
+                             alt="${playlist.name}">
+                    </div>
+                    <div class="playlist-info">
+                        <h1 class="playlist-title">${playlist.name}</h1>
+                        <div class="playlist-meta">
+                            ${trackCount} songs • ${duration}
+                        </div>
+                        <button class="playlist-play-button" data-uri="${playlist.uri}">
+                            <i class="fas fa-play"></i>
+                            Play
+                        </button>
+                    </div>
+                </div>
+                <div class="playlist-tracks">
+                    ${playlist.tracks.items.map((item, index) => `
+                        <div class="playlist-track" data-uri="${item.track.uri}" data-context-uri="${playlist.uri}">
+                            <span class="track-number">${index + 1}</span>
+                            <img class="track-image" 
+                                 src="${item.track.album.images[0]?.url || '/static/images/default-track.jpg'}" 
+                                 alt="${item.track.name}">
+                            <div class="track-details">
+                                <div class="track-title">${item.track.name}</div>
+                                <div class="track-artist">${item.track.artists.map(a => a.name).join(', ')}</div>
+                            </div>
+                            <span class="track-duration">${formatDuration(item.track.duration_ms)}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+
+            // Add event listeners
+            setupPlaylistEventListeners(playlistView);
+        })
+        .catch(error => {
+            console.error('Error loading playlist:', error);
+            playlistView.innerHTML = `
+                <div class="error-message">
+                    Failed to load playlist. Please try again later.
+                </div>
+            `;
+        });
+}
+
+function setupPlaylistEventListeners(playlistView) {
+    // Back button
+    playlistView.querySelector('.back-button').addEventListener('click', () => {
+        loadSpotifyLibrary();
+    });
+
+    // Play button
+    playlistView.querySelector('.playlist-play-button').addEventListener('click', (e) => {
+        const uri = e.currentTarget.dataset.uri;
+        playSpotifyContent(uri);
+    });
+
+    // Individual tracks
+    playlistView.querySelectorAll('.playlist-track').forEach(track => {
+        track.addEventListener('click', (e) => {
+            const trackUri = e.currentTarget.dataset.uri;
+            const contextUri = e.currentTarget.dataset.contextUri;
+            // For individual tracks, we'll use the track URI directly
+            playSpotifyContent(trackUri);
+        });
+    });
+}
+
+function formatPlaylistDuration(tracks) {
+    const totalMs = tracks.reduce((total, item) => total + item.track.duration_ms, 0);
+    const hours = Math.floor(totalMs / (1000 * 60 * 60));
+    const minutes = Math.floor((totalMs % (1000 * 60 * 60)) / (1000 * 60));
+    
+    if (hours > 0) {
+        return `${hours} hr ${minutes} min`;
+    }
+    return `${minutes} min`;
+}
+
+function formatDuration(ms) {
+    const minutes = Math.floor(ms / 60000);
+    const seconds = Math.floor((ms % 60000) / 1000);
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+}
+
+function showArtistView(artistId, fromLibrary = true) {
+    const spotifyContent = document.querySelector('.spotify-content');
+    const searchBar = document.querySelector('.spotify-search');
+    
+    if (fromLibrary) {
+        // Clear navigation history when coming from library
+        navigationHistory = [];
+    }
+    
+    // Hide search bar
+    searchBar.style.display = 'none';
+    
+    spotifyContent.innerHTML = `
+        <div class="artist-view">
+            <button class="back-button">
+                <i class="fas fa-arrow-left"></i>
+                Back
+            </button>
+            <div class="artist-loader">
+                <div class="loader-spinner"></div>
+            </div>
+        </div>
+    `;
+
+    // Show the artist view
+    const artistView = spotifyContent.querySelector('.artist-view');
+    artistView.classList.add('show');
+
+    // Fetch artist details
+    fetch(`/api/spotify/artist/${artistId}`)
+        .then(response => response.json())
+        .then(data => {
+            const { artist, top_tracks, albums } = data;
+            
+            artistView.innerHTML = `
+                <button class="back-button">
+                    <i class="fas fa-arrow-left"></i>
+                    Back
+                </button>
+                <div class="artist-header">
+                    <div class="artist-cover">
+                        <img src="${artist.images[0]?.url || '/static/images/default-artist.jpg'}" 
+                             alt="${artist.name}">
+                    </div>
+                    <div class="artist-info">
+                        <h1 class="artist-name">${artist.name}</h1>
+                        <div class="artist-meta">
+                            ${formatFollowers(artist.followers.total)} followers
+                        </div>
+                    </div>
+                </div>
+                <div class="artist-sections">
+                    <div class="artist-section">
+                        <h2 class="section-title">Popular</h2>
+                        <div class="playlist-tracks">
+                            ${top_tracks.slice(0, 5).map((track, index) => `
+                                <div class="playlist-track" data-uri="${track.uri}">
+                                    <span class="track-number">${index + 1}</span>
+                                    <img class="track-image" 
+                                         src="${track.album.images[0]?.url || '/static/images/default-track.jpg'}" 
+                                         alt="${track.name}">
+                                    <div class="track-details">
+                                        <div class="track-title">${track.name}</div>
+                                        <div class="track-artist">${track.album.name}</div>
+                                    </div>
+                                    <span class="track-duration">${formatDuration(track.duration_ms)}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                    <div class="artist-section">
+                        <h2 class="section-title">Albums</h2>
+                        <div class="albums-grid">
+                            ${albums.map(album => `
+                                <div class="album-item" data-uri="${album.uri}">
+                                    <div class="album-cover">
+                                        <img src="${album.images[0]?.url || '/static/images/default-album.jpg'}" 
+                                             alt="${album.name}">
+                                    </div>
+                                    <div class="album-name">${album.name}</div>
+                                    <div class="album-year">${new Date(album.release_date).getFullYear()}</div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // Add event listeners
+            setupArtistEventListeners(artistView);
+        })
+        .catch(error => {
+            console.error('Error loading artist:', error);
+            artistView.innerHTML = `
+                <div class="error-message">
+                    Failed to load artist. Please try again later.
+                </div>
+            `;
+        });
+}
+
+function setupArtistEventListeners(artistView) {
+    // Back button
+    artistView.querySelector('.back-button').addEventListener('click', () => {
+        if (navigationHistory.length > 0) {
+            // Restore the previous view
+            const previousView = navigationHistory.pop();
+            const spotifyContent = document.querySelector('.spotify-content');
+            spotifyContent.innerHTML = previousView.content;
+            
+            // Restore scroll position after content is loaded
+            setTimeout(() => {
+                spotifyContent.scrollTop = previousView.scrollPosition;
+                // Reattach event listeners for the artist view
+                if (previousView.type === 'artist') {
+                    setupArtistEventListeners(spotifyContent.querySelector('.artist-view'));
+                }
+            }, 0);
+        } else {
+            loadSpotifyLibrary();
+        }
+    });
+
+    artistView.querySelectorAll('.playlist-track').forEach(track => {
+        track.addEventListener('click', (e) => {
+            const uri = e.currentTarget.dataset.uri;
+            playSpotifyContent(uri);
+        });
+    });
+
+    artistView.querySelectorAll('.album-item').forEach(album => {
+        album.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const uri = e.currentTarget.dataset.uri;
+            const albumId = uri.split(':')[2];
+            showAlbumView(albumId, true);  // Pass true to indicate it's from artist view
+        });
+    });
+}
+
+function playSpotifyContent(contextUri, trackUri = null) {
+    if (!selectedMediaPlayer || !haSocket || haSocket.readyState !== WebSocket.OPEN) {
+        showToast('Not connected to media player', 3000);
+        return;
+    }
+
+    // Show loading state
+    const controlBar = document.querySelector('.spotify-control-bar');
+    if (controlBar) controlBar.classList.add('loading');
+
+    // Add to pending updates
+    pendingUpdates.add(selectedMediaPlayer);
+
+    // First ensure the media player is on
+    haSocket.send(JSON.stringify({
+        id: getNextMessageId(),
+        type: 'call_service',
+        domain: 'media_player',
+        service: 'turn_on',
+        target: {
+            entity_id: selectedMediaPlayer
+        }
+    }));
+
+    // Then play the content
+    const data = {
+        media_content_id: trackUri || contextUri,
+        media_content_type: trackUri ? 'music' : 'playlist',
+    };
+
+    haSocket.send(JSON.stringify({
+        id: getNextMessageId(),
+        type: 'call_service',
+        domain: 'media_player',
+        service: 'play_media',
+        target: {
+            entity_id: selectedMediaPlayer
+        },
+        service_data: data
+    }));
+}
+
+// Update the click handler to handle both playlists and artists
+document.addEventListener('click', (e) => {
+    const gridItem = e.target.closest('.spotify-grid-item');
+    if (gridItem) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const uri = gridItem.dataset.uri;
+        if (uri?.startsWith('spotify:playlist:')) {
+            const playlistId = uri.split(':')[2];
+            showPlaylistView(playlistId);
+        } else if (uri?.startsWith('spotify:artist:')) {
+            const artistId = uri.split(':')[2];
+            showArtistView(artistId, true); // Indicate this is from library
+        } else if (uri?.startsWith('spotify:album:')) {
+            const albumId = uri.split(':')[2];
+            showAlbumView(albumId, false); // Indicate this is from library
+        }
+    }
+});
+
+// Add a navigation history stack
+let navigationHistory = [];
+
+function showAlbumView(albumId, fromArtist = false) {
+    if (fromArtist) {
+        // Store the current artist view HTML and scroll position
+        const currentView = document.querySelector('.spotify-content').innerHTML;
+        const scrollPosition = document.querySelector('.spotify-content').scrollTop;
+        navigationHistory.push({
+            type: 'artist',
+            content: currentView,
+            scrollPosition: scrollPosition
+        });
+    } else {
+        // Clear navigation history if coming from library
+        navigationHistory = [];
+    }
+
+    const spotifyContent = document.querySelector('.spotify-content');
+    const searchBar = document.querySelector('.spotify-search');
+    
+    // Hide search bar
+    searchBar.style.display = 'none';
+    
+    spotifyContent.innerHTML = `
+        <div class="album-view">
+            <button class="back-button">
+                <i class="fas fa-arrow-left"></i>
+                Back
+            </button>
+            <div class="album-loader">
+                <div class="loader-spinner"></div>
+            </div>
+        </div>
+    `;
+
+    // Show the album view
+    const albumView = spotifyContent.querySelector('.album-view');
+    albumView.classList.add('show');
+
+    // Fetch album details
+    fetch(`/api/spotify/album/${albumId}`)
+        .then(response => response.json())
+        .then(album => {
+            const releaseYear = new Date(album.release_date).getFullYear();
+            const totalDuration = formatAlbumDuration(album.tracks.items);
+            
+            albumView.innerHTML = `
+                <button class="back-button">
+                    <i class="fas fa-arrow-left"></i>
+                    Back
+                </button>
+                <div class="album-header">
+                    <div class="album-cover">
+                        <img src="${album.images[0]?.url || '/static/images/default-album.jpg'}" 
+                             alt="${album.name}">
+                    </div>
+                    <div class="album-info">
+                        <h1 class="album-title">${album.name}</h1>
+                        <div class="album-meta">
+                            ${album.artists.map(artist => artist.name).join(', ')} • ${releaseYear} • 
+                            ${album.total_tracks} songs, ${totalDuration}
+                        </div>
+                        <button class="album-play-button" data-uri="${album.uri}">
+                            <i class="fas fa-play"></i>
+                            Play
+                        </button>
+                    </div>
+                </div>
+                <div class="album-tracks">
+                    ${album.tracks.items.map((track, index) => `
+                        <div class="playlist-track" data-uri="${track.uri}" data-context-uri="${album.uri}">
+                            <span class="track-number">${index + 1}</span>
+                            <div class="track-details">
+                                <div class="track-title">${track.name}</div>
+                                <div class="track-artist">${track.artists.map(a => a.name).join(', ')}</div>
+                            </div>
+                            <span class="track-duration">${formatDuration(track.duration_ms)}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+
+            // Add event listeners
+            setupAlbumEventListeners(albumView);
+        })
+        .catch(error => {
+            console.error('Error loading album:', error);
+            albumView.innerHTML = `
+                <div class="error-message">
+                    Failed to load album. Please try again later.
+                </div>
+            `;
+        });
+}
+
+function setupAlbumEventListeners(albumView) {
+    // Back button
+    albumView.querySelector('.back-button').addEventListener('click', () => {
+        if (navigationHistory.length > 0) {
+            // Restore the previous view
+            const previousView = navigationHistory.pop();
+            const spotifyContent = document.querySelector('.spotify-content');
+            spotifyContent.innerHTML = previousView.content;
+            
+            // Restore scroll position after content is loaded
+            setTimeout(() => {
+                spotifyContent.scrollTop = previousView.scrollPosition;
+                // Reattach event listeners for the artist view
+                if (previousView.type === 'artist') {
+                    setupArtistEventListeners(spotifyContent.querySelector('.artist-view'));
+                }
+            }, 0);
+        } else {
+            loadSpotifyLibrary();
+        }
+    });
+
+    // Play button
+    albumView.querySelector('.album-play-button').addEventListener('click', (e) => {
+        const uri = e.currentTarget.dataset.uri;
+        playSpotifyContent(uri);
+    });
+
+    // Individual tracks
+    albumView.querySelectorAll('.playlist-track').forEach(track => {
+        track.addEventListener('click', (e) => {
+            const trackUri = e.currentTarget.dataset.uri;
+            const contextUri = e.currentTarget.dataset.contextUri;
+            playSpotifyContent(trackUri);
+        });
+    });
+}
+
+function formatAlbumDuration(tracks) {
+    const totalMs = tracks.reduce((total, track) => total + track.duration_ms, 0);
+    const minutes = Math.floor(totalMs / 60000);
+    
+    if (minutes >= 60) {
+        const hours = Math.floor(minutes / 60);
+        const remainingMinutes = minutes % 60;
+        return `${hours} hr ${remainingMinutes} min`;
+    }
+    return `${minutes} min`;
 }
