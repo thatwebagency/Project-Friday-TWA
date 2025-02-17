@@ -51,6 +51,7 @@ Follow Clean Install, if you do not already have Project Friday installed. Follo
 - Custom Spotify interface
 - Playlists, Top Artists & Top Songs
 - Searching Albums, Artists, Songs, Playlists
+- Saved songs coming soon
 
 ### 🏠 Supported Devices
 
