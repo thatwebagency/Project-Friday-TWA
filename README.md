@@ -21,8 +21,16 @@ Project Friday is a modern, simplified dashboard interface designed for Tablet d
 
 Follow Clean Install, if you do not already have Project Friday installed. Follow Upgrading if you already have Project Friday installed.
 
-- **Version 1.1.0**
-  - Spotify integration
+- **Version 1.1.1**
+  - Added Dashboard room management:
+    - Reorder entities and add/remove directly from dashboard
+    - Press and hold to enter editing mode
+    - Click anywhere to disable editing mode
+  - Added release notes modal to dashboard
+  - Various styling improvements
+  - Note: Room creation/deletion and ordering remain in settings
+  - Note: Entity management remains available in settings
+
 
 ## Features
 
@@ -176,6 +184,12 @@ python3 app.py
 ```
 
 ### Version History
+
+- **Version 1.1.1**
+  - Added Dashboard room management functionality
+  - Added release notes modal to dashboard
+  - Various styling improvements
+
 - **Version 1.0.1**
   - Added support for switches
   - Added support for scripts
@@ -185,6 +199,7 @@ python3 app.py
   - Updated Settings Entities functionality to autosave on changes
   - Removed Setup page and replaced with standard Settings page
   - Resolved various bugs
+
 - **Version v1.0.0**
   - Initial release
 

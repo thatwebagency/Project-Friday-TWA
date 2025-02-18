@@ -7,3 +7,4 @@
 *.pyc
 .DS_Store
 .cache
+release.json
