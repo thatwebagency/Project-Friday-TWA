@@ -471,7 +471,7 @@
     gap: 15px;
     transition: all 0.2s ease;
     cursor: pointer;
-    min-height: 350px;
+    min-width: 350px;
 }
 
 .media-player-card:hover {
