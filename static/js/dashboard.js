@@ -2214,7 +2214,9 @@ document.head.appendChild(styleSheet);
 function getMediaPlayerCard(device, state) {
     const hasMedia = !!state.attributes?.media_title;
     const artworkUrl = state.attributes?.entity_picture ? 
-        `/api/media_proxy${state.attributes.entity_picture}` : '';
+        (state.attributes.entity_picture.startsWith('https://i.scdn.co') ? 
+            state.attributes.entity_picture : 
+            `/api/media_proxy${state.attributes.entity_picture}`) : '';
     
     return `
         <div class="device-card media-player-card ${artworkUrl ? 'has-media' : ''}" 
@@ -2476,7 +2478,9 @@ function updateSpotifyControlBar(state) {
     if (state && state.attributes) {
         // Update track image
         if (state.attributes.entity_picture) {
-            trackImage.src = `/api/media_proxy${state.attributes.entity_picture}`;
+            trackImage.src = state.attributes.entity_picture.startsWith('https://i.scdn.co') ?
+                state.attributes.entity_picture :
+                `/api/media_proxy${state.attributes.entity_picture}`;
         } else {
             trackImage.src = '/static/images/default-spotify.jpg';
         }
