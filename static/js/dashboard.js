@@ -170,7 +170,6 @@ function connectToHA(config) {
         haSocket = new WebSocket(wsUrl);
 
         haSocket.onopen = () => {
-            console.log('Connected to Home Assistant');
             haSocket.send(JSON.stringify({
                 type: "auth",
                 access_token: config.access_token
@@ -181,7 +180,6 @@ function connectToHA(config) {
             const message = JSON.parse(event.data);
 
             if (message.type === "auth_ok") {
-                console.log('Successfully authenticated with Home Assistant');
                 fetchInitialStates().then(() => {
                     subscribeToStateChanges();
                     resolve();
@@ -197,7 +195,6 @@ function connectToHA(config) {
         };
 
         haSocket.onclose = (event) => {
-            console.log('Disconnected from Home Assistant:', event.code, event.reason);
             // Implement exponential backoff for reconnection
             const backoffDelay = Math.min(1000 * Math.pow(2, haSocket.retries || 0), 30000);
             haSocket.retries = (haSocket.retries || 0) + 1;
@@ -250,7 +247,6 @@ function handleInitialStates(states) {
 
     // If we found missing entities, send them to backend for removal
     if (missingEntities.length > 0) {
-        console.log('Found missing entities:', missingEntities);
         fetch('/api/entities/remove', {
             method: 'POST',
             headers: {
@@ -868,7 +864,6 @@ function setupSpotifyGridItemListeners() {
             const uri = item.dataset.uri;
             const type = item.dataset.type;
             
-            console.log('Clicked item:', { uri, type, selectedMediaPlayer });
             
             if (!uri || !selectedMediaPlayer) {
                 showToast('Please select a media player first', 3000);
@@ -881,12 +876,6 @@ function setupSpotifyGridItemListeners() {
 
             try {
                 const msgId = getNextMessageId();
-                console.log('Sending play command:', {
-                    msgId,
-                    entityId: selectedMediaPlayer,
-                    uri,
-                    type
-                });
                 
                 pendingUpdates.add(selectedMediaPlayer);
                 
@@ -909,11 +898,9 @@ function setupSpotifyGridItemListeners() {
                     }
                 };
                 
-                console.log('WebSocket message:', message);
                 haSocket.send(JSON.stringify(message));
 
                 const response = await handleCommandResponse(msgId, selectedMediaPlayer);
-                console.log('Command response:', response);
                 
                 showToast(`Playing ${type}...`);
             } catch (error) {
@@ -3133,8 +3120,6 @@ function toggleReorderMode(roomId) {
         console.error(`Could not find room with ID ${roomId}`);
         return;
     }
-
-    console.log('Toggling reorder mode for room:', roomId);
     room.classList.toggle('reorder-mode', isReorderMode);
 
     // Add or remove the "Add devices" button
@@ -3196,12 +3181,9 @@ function toggleReorderMode(roomId) {
     const deviceSections = room.querySelectorAll('.device-section .devices-grid');
     const scriptsContainer = room.querySelector('.scripts-container');
     
-    console.log(`Found ${deviceSections.length} device sections and ${scriptsContainer ? 1 : 0} scripts section`);
-    
     // Handle device sections
     deviceSections.forEach(section => {
         const sectionType = section.closest('.device-section').querySelector('.section-title').textContent.toLowerCase();
-        console.log('Initializing sorting for section:', sectionType);
         
         const existingSortable = Sortable.get(section);
         if (existingSortable) {
@@ -3256,8 +3238,6 @@ async function updateEntityOrder(roomId, sectionType) {
     const entityIds = Array.from(
         section.querySelectorAll(sectionType === 'scripts' ? '.script-pill' : '.device-card')
     ).map(element => element.dataset.deviceId);
-    
-    console.log(`Updating order for ${sectionType}:`, entityIds);
 
     try {
         const response = await fetch(`/api/rooms/${roomId}/entities/reorder`, {
@@ -3274,8 +3254,6 @@ async function updateEntityOrder(roomId, sectionType) {
         if (!response.ok) {
             throw new Error('Failed to update entity order');
         }
-        
-        console.log('Order updated successfully');
     } catch (error) {
         console.error('Error updating entity order:', error);
         showToast('Failed to save new order', 3000);
@@ -3284,9 +3262,7 @@ async function updateEntityOrder(roomId, sectionType) {
 
 // Update the click handler for entity cards
 function initializeEntityCards() {
-    console.log('Initializing entity cards...');
     const cards = document.querySelectorAll('.device-card, .script-pill');
-    console.log(`Found ${cards.length} entity cards`);
 
     cards.forEach(card => {
         let startTime;
@@ -3294,19 +3270,15 @@ function initializeEntityCards() {
 
         // Mouse Events
         card.addEventListener('mousedown', (e) => {
-            console.log('Mouse down on card');
             if (isReorderMode) return;
             startTime = Date.now();
             longPressTimer = setTimeout(() => {
-                console.log('Long press detected');
                 const room = card.closest('.room-content');
-                console.log('Room element:', room);
                 if (!room) {
                     console.error('Could not find parent room element');
                     return;
                 }
                 const roomId = room.dataset.roomId;
-                console.log('Room ID:', roomId);
                 if (roomId) {
                     toggleReorderMode(roomId);
                 } else {
@@ -3340,7 +3312,6 @@ function initializeEntityCards() {
             startTime = Date.now();
             startTouch = e.touches[0];
             longPressTimer = setTimeout(() => {
-                console.log('Long press detected');
                 const room = card.closest('.room-content');
                 console.log('Room element:', room);
                 if (!room) {
@@ -3488,28 +3459,19 @@ async function showEntityModal(roomId, roomName) {
         // Get all available entities
         const entitiesResponse = await fetch('/api/ha/entities');
         const allEntities = await entitiesResponse.json();
-        console.log('All entities:', allEntities.length);
         
         // Get current room's entities
         const roomDevicesResponse = await fetch(`/api/rooms/${roomId}/devices`);
         const roomDevices = await roomDevicesResponse.json();
-        console.log('Room devices:', roomDevices);
         
         // Create a set of existing entity IDs for quick lookup
         const existingEntityIds = new Set(roomDevices.map(device => device.id));
-        console.log('Existing entity IDs:', Array.from(existingEntityIds));
         
         // Check if room has a climate device
         const hasClimate = roomDevices.some(device => device.type === 'climate');
-        console.log('Has climate:', hasClimate);
         
         // Filter out existing entities and handle climate devices
         const availableEntities = allEntities.filter(entity => {
-            // Log entity being checked
-            console.log('Checking entity:', entity.entity_id, {
-                isExisting: existingEntityIds.has(entity.entity_id),
-                isClimate: entity.domain === 'climate' && hasClimate
-            });
             
             // Filter out existing entities
             if (existingEntityIds.has(entity.entity_id)) {
@@ -3523,8 +3485,6 @@ async function showEntityModal(roomId, roomName) {
             
             return true;
         });
-        
-        console.log('Available entities after filtering:', availableEntities.length);
         
         // Group filtered entities by domain
         const groupedEntities = groupEntitiesByDomain(availableEntities);
