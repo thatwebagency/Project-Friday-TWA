@@ -55,8 +55,6 @@ function initializeTabs() {
                 loadRooms();
             } else if (tab.dataset.tab === 'entities') {
                 loadEntitiesStep();
-            } else if (tab.dataset.tab === 'spotify') {
-                initializeSpotifyTab();
             }
         });
     });
@@ -1194,75 +1192,5 @@ function initializeMobileEvents() {
             entityCard.style.opacity = '1';
         }
     }, { passive: true });
-}
-
-// Add this with other initialization code
-async function initializeSpotifyTab() {
-    const statusContainer = document.getElementById('spotify-status');
-    const statusIndicator = statusContainer.querySelector('.status-indicator');
-    const statusText = statusContainer.querySelector('.status-text');
-    const form = document.getElementById('spotify-form');
-    
-    // Check current connection status
-    try {
-        const response = await fetch('/api/settings/spotify/status');
-        const data = await response.json();
-        
-        if (response.ok) {
-            // Load existing credentials if available
-            const credResponse = await fetch('/api/settings/spotify');
-            if (credResponse.ok) {
-                const credentials = await credResponse.json();
-                document.getElementById('spotify_client_id').value = credentials.client_id || '';
-                document.getElementById('spotify_client_secret').value = credentials.client_secret || '';
-            }
-            
-            if (data.connected) {
-                statusIndicator.classList.add('connected');
-                statusText.textContent = 'Connected to Spotify';
-            } else {
-                statusIndicator.classList.add('disconnected');
-                statusText.textContent = 'Not connected to Spotify';
-            }
-        }
-    } catch (error) {
-        console.error('Error checking Spotify status:', error);
-        statusIndicator.classList.add('disconnected');
-        statusText.textContent = 'Error checking Spotify connection';
-    }
-    
-    // Handle form submission
-    form.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        
-        const formData = new FormData(form);
-        const credentials = {
-            client_id: formData.get('spotify_client_id'),
-            client_secret: formData.get('spotify_client_secret')
-        };
-        
-        try {
-            const response = await fetch('/api/settings/spotify', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(credentials)
-            });
-            
-            if (response.ok) {
-                showToast('Spotify connected successfully', 'success');
-                statusIndicator.classList.remove('disconnected');
-                statusIndicator.classList.add('connected');
-                statusText.textContent = 'Connected to Spotify';
-            } else {
-                const error = await response.json();
-                showToast(error.message || 'Failed to connect to Spotify', 'error');
-            }
-        } catch (error) {
-            console.error('Error connecting to Spotify:', error);
-            showToast('Failed to connect to Spotify', 'error');
-        }
-    });
 }
 

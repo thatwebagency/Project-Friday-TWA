@@ -127,6 +127,11 @@ body {
     font-family: "DM Sans", serif;
     color:#4a4a4a;
     margin: 0px;
+    -webkit-user-select: none;  /* Safari */
+    -ms-user-select: none;      /* IE 10 and IE 11 */
+    user-select: none;          /* Standard syntax */
+    -webkit-touch-callout: none; /* iOS Safari */
+    touch-action: manipulation;  /* Optimizes touch input */
 }
 
 h2 {
@@ -834,7 +839,7 @@ div#setupCompleteModal {
 
 .current-time {
     display: block;
-    font-size: 100px;
+    font-size: 90px;
     font-weight: 100;
     color: white;
 }
@@ -1014,7 +1019,7 @@ div#roomContent {
 }
 
 .devices-grid {
-    padding-right: 30px;
+    padding-right: 30px!important;
 }
 
 /* Rooms Navigation */
@@ -2077,4 +2082,23 @@ img.friday-logo {
     font-weight: 200;
     margin-bottom: 20px;
     color: #434343;
+}
+
+* {
+    -webkit-tap-highlight-color: transparent;  /* Removes tap highlight on iOS */
+    touch-action: manipulation;  /* Optimizes touch input, prevents double-tap zoom */
+    -webkit-touch-callout: none;  /* Prevents callout menu on iOS */
+    -webkit-user-select: none;  /* Safari */
+    -ms-user-select: none;      /* IE 10 and IE 11 */
+    user-select: none;          /* Standard syntax */
+    context-menu: none;         /* Disables context menu */
+}
+
+/* Allow text selection and context menu only in input fields */
+input, textarea {
+    -webkit-user-select: text;
+    -ms-user-select: text;
+    user-select: text;
+    -webkit-touch-callout: default;
+    touch-action: auto;
 }

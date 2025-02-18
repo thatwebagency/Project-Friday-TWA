@@ -1,6 +1,12 @@
 {% extends "base.html" %}
 
 {% block content %}
+{% if show_release %}
+<div id="release-data" 
+     data-show-release="true" 
+     data-release-data='{{ release_data | tojson | safe }}'></div>
+{% endif %}
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
 <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
 <div class="dashboard-container">
@@ -90,6 +96,28 @@
 
 <!-- Toast Container -->
 <div class="toast-container"></div>
+
+<!-- Entity Selection Modal -->
+<div id="entityModal" class="modal entity-modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h4>Add Entities to <span id="modalRoomName"></span></h4>
+            <button type="button" class="modal-close">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="entity-search">
+                <input type="text" placeholder="Search entities..." id="entitySearch">
+            </div>
+            <div id="modalEntityList">
+                <!-- Entity sections will be dynamically added here -->
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="modal-cancel">Cancel</button>
+            <button type="button" class="modal-save" disabled>Add Selected</button>
+        </div>
+    </div>
+</div>
 
 <style>
 .scripts-section {

@@ -1186,3 +1186,322 @@ button.playlist-play-button:hover {
 .album-tracks {
     margin-top: 24px;
 }
+
+/* Add reorder mode styles */
+.room-content.reorder-mode .device-card {
+    animation: shake 0.3s infinite;
+    cursor: move;
+}
+
+.room-content.reorder-mode .device-card:active {
+    animation: none;
+    opacity: 0.8;
+    transform: scale(1.05);
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-2px) rotate(-1deg); }
+    75% { transform: translateX(2px) rotate(1deg); }
+}
+
+/* Style for the sortable ghost (dragging preview) */
+.sortable-ghost {
+    opacity: 0.4;
+}
+
+/* Style for the sortable chosen item (being dragged) */
+.sortable-chosen {
+    animation: none !important;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+}
+
+/* Style for the drop placeholder */
+.sortable-drag {
+    opacity: 0.8;
+}
+
+.release-popup {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.release-popup.show {
+    opacity: 1;
+}
+
+.release-popup-content {
+    background: white;
+    padding: 2rem;
+    border-radius: 8px;
+    max-width: 500px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.release-popup h2 {
+    margin-top: 0;
+    color: #333;
+}
+
+.release-date {
+    color: #666;
+    margin-bottom: 1rem;
+    font-size: 0.9rem;
+}
+
+/* Entity Modal Styles */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+}
+
+.modal-content {
+    background: white;
+    border-radius: 12px;
+    max-width: 800px;
+    width: 90%;
+    margin: 40px auto;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.modal-header {
+    padding: 20px;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 0px;
+}
+
+.modal-header h4 {
+    margin: 0;
+    font-weight: 500;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: #666;
+}
+
+.modal-body {
+    padding: 20px;
+    overflow-y: auto;
+}
+
+.entity-search {
+    margin-bottom: 20px;
+}
+
+.entity-search input {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 14px;
+}
+
+.modal-entity-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 15px;
+    margin-bottom: 15px;
+}
+
+.entity-section {
+    margin-bottom: 20px;
+}
+
+.entity-section-header {
+    font-size: 14px;
+    color: #666;
+    margin-bottom: 10px;
+    padding-bottom: 5px;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.entity-card {
+    background: #fff;
+    border: 1px solid #eee;
+    border-radius: 10px;
+    padding: 15px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    max-width: 206px;
+}
+
+.entity-card:hover {
+    background: #f5f5f5;
+}
+
+.entity-card.selected {
+    background: #e3f2fd;
+    border-color: #2196f3;
+}
+
+.modal-footer {
+    padding: 20px;
+    border-top: 1px solid #eee;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.modal-footer button {
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.modal-cancel {
+    background: none;
+    border: 1px solid #ddd;
+}
+
+.modal-save {
+    background: #1DB954;
+    color: white;
+    border: none;
+}
+
+.modal-save:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+}
+
+/* Mobile responsive styles */
+@media (max-width: 768px) {
+    .modal-content {
+        width: 95%;
+        margin: 20px auto;
+        max-height: 90vh;
+    }
+    
+    .modal-entity-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 480px) {
+    .modal-entity-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Add devices button styles */
+.add-devices-button {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: var(--accent-color);
+    color: white;
+    border: none;
+    border-radius: 20px;
+    padding: 8px 16px;
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    z-index: 10;
+    transition: all 0.2s ease;
+    background: black;
+}
+
+.add-devices-button i {
+    font-size: 12px;
+}
+
+.add-devices-button:hover {
+    background: var(--accent-color-dark);
+    transform: scale(1.05);
+}
+
+/* Ensure room-content has relative positioning for absolute button placement */
+.room-content {
+    position: relative;
+}
+
+/* Mobile responsive adjustments */
+@media (max-width: 768px) {
+    .add-devices-button {
+        top: 10px;
+        right: 10px;
+        padding: 6px 12px;
+        font-size: 13px;
+    }
+}
+
+.remove-device-button {
+    position: absolute;
+    top: -17px;
+    right: -14px;
+    background: rgb(186 186 186);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 10;
+    width: 43px;
+    height: 43px;
+}
+
+.device-card {
+    position: relative;
+}
+
+button.modal-save {
+    padding: 10px 20px;
+    background: #434343;
+    color: white;
+    border: none;
+    border-radius: 15px;
+    cursor: pointer;
+    max-width: fit-content;
+    font-family: "DM Sans", serif;
+    font-weight: 400;
+}
+
+button.modal-cancel {
+    color: white;
+    cursor: pointer;
+    max-width: fit-content;
+    font-family: "DM Sans", serif;
+    font-weight: 400;
+    padding: 10px 20px;
+    background: rgb(67, 67, 67);
+    border-width: initial;
+    border-style: none;
+    border-color: initial;
+    border-image: initial;
+    border-radius: 15px;
+}

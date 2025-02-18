@@ -8,7 +8,7 @@ Project Friday is a modern, simplified dashboard interface designed for Tablet d
 ![Project Friday Dashboard](https://community-assets.home-assistant.io/original/4X/2/a/8/2a8598863684ca61eb3df78788d4b5c8accf4f60.gif)
 
 ## Settings config
-![Project Friday Settings Config](https://community-assets.home-assistant.io/original/4X/b/5/3/b530c18a386487bcfc7bee73796b46b4509822db.gif)
+![Project Friday Settings Config](dashboarddemo.gif)
 
 ### 🔧 Quick Links
 
@@ -21,10 +21,19 @@ Project Friday is a modern, simplified dashboard interface designed for Tablet d
 
 Follow Clean Install, if you do not already have Project Friday installed. Follow Upgrading if you already have Project Friday installed.
 
-- **Version 1.1.0**
-  - Spotify integration
+- **Version 1.2.0 - Version 2 Interface**
+  - Added Dashboard room management:
+    - Reorder entities and add/remove directly from dashboard
+    - Press and hold to enter editing mode
+    - Click anywhere to disable editing mode
+  - Added release notes modal to dashboard
+  - Various styling improvements
+  - Note: Room creation/deletion and ordering remain in settings
+  - Note: Entity management remains available in settings
 
 ## Features
+
+### Spotify integration now complete! 🎉
 
 ### Core Features
 - **Easy Setup and Configuration**
@@ -44,7 +53,7 @@ Follow Clean Install, if you do not already have Project Friday installed. Follo
   - Weather information integration
   - Time and date display
 
-### Spotify integration
+### Spotify integration 🎉
 - Directly connected to your Spotify account (Premium required)
 - Player selection (From Home Assistant)
 - Media playback controls
@@ -176,6 +185,12 @@ python3 app.py
 ```
 
 ### Version History
+- **Version 1.2.0 - V2 Interface**
+  - Added Dashboard room management functionality
+  - Added release notes modal to dashboard
+  - Various styling improvements
+- **Version 1.1.0**
+  - Added Spotify integration
 - **Version 1.0.1**
   - Added support for switches
   - Added support for scripts

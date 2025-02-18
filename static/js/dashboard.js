@@ -7,6 +7,16 @@ let pendingUpdates = new Set();
 let messageHandlers = new Map(); // Store message handlers globally
 let selectedMediaPlayer = null; // Store the currently selected media player entity_id
 
+let isReorderMode = false;
+let longPressTimer = null;
+const LONG_PRESS_DURATION = 500; // 500ms for long press
+
+let spotifyLibraryLoaded = false;
+
+document.addEventListener('contextmenu', event => {
+    event.preventDefault();
+});
+
 // Time functions
 function updateTime() {
     const now = new Date();
@@ -633,6 +643,7 @@ function handleSpotifySearch(e) {
 
 // Update displaySpotifyRoom to use the new function
 function displaySpotifyRoom() {
+
     const roomContent = document.getElementById('roomContent');
     
     // Show loading state
@@ -903,197 +914,218 @@ async function loadRoomDevices(roomId) {
         const response = await fetch(`/api/rooms/${roomId}/devices`);
         const devices = await response.json();
         roomDevices[roomId] = devices;
+        return devices;
     } catch (error) {
         console.error(`Error loading devices for room ${roomId}:`, error);
         roomDevices[roomId] = [];
+        throw error;
     }
 }
 
 function displayRoomDevices(roomId) {
-    const devices = roomDevices[roomId] || [];
-
-    // Sort devices by their order within each category
-    const categories = {
-        scripts: devices.filter(d => d.type === 'script').sort((a, b) => a.order - b.order),
-        sensors: devices.filter(d => d.type === 'sensor').sort((a, b) => a.order - b.order),
-        lights: devices.filter(d => d.type === 'light').sort((a, b) => a.order - b.order),
-        switches: devices.filter(d => d.type === 'switch').sort((a, b) => a.order - b.order),
-        climate: devices.filter(d => d.type === 'climate').sort((a, b) => a.order - b.order),
-        media_players: devices.filter(d => d.type === 'media_player').sort((a, b) => a.order - b.order),
-        other: devices.filter(d => !['light', 'climate', 'sensor', 'switch', 'script', 'media_player'].includes(d.type))
-            .sort((a, b) => a.order - b.order),
-    };
-    // Add scripts section if there are scripts
-    const scriptsHTML = categories.scripts.length > 0 ? `
-        <div class="scripts-section">
-            <div class="scripts-container">
-                ${categories.scripts.map(script => `
-                    <button class="script-pill" 
-                            data-device-id="${script.id}"
-                            data-state="${entityStates[script.id]?.state || 'off'}">
-                        ${script.name}
-                        <div class="script-loader"></div>
-                    </button>
-                `).join('')}
-            </div>
-        </div>
-    ` : '';
-
-    // Check if there are any non-climate devices
-    const hasNonClimateDevices = Object.entries(categories)
-        .filter(([category]) => category !== 'climate')
-        .some(([_, devices]) => devices.length > 0);
-
-    // Define the order of categories
-    const categoryOrder = ['sensors', 'lights', 'switches', 'media_players', 'other'];
-
-    // Generate sections HTML only if there are non-climate devices
-    const sectionsHTML = hasNonClimateDevices ? 
-        categoryOrder
-            .map(category => {
-                const deviceList = categories[category];
-                if (deviceList.length === 0) return '';
-
-                return `
-                    <div class="device-section">
-                        <h2 class="section-title">${category.charAt(0).toUpperCase() + category.slice(1).replace('_', ' ')}</h2>
-                        <div class="devices-grid">
-                            ${deviceList.map(device => {
-                                const currentState = entityStates[device.id] || {};
-                                
-                                if (device.type === 'media_player') {
-                                    return getMediaPlayerCard(device, currentState);
-                                }
-                                
-                                const isOn = currentState.state === 'on';
-                                const brightness = currentState.attributes?.brightness || 0;
-                                
-                                return `
-                                    <div class="device-card ${device.type === 'light' ? 'light-card' : ''} 
-                                                    ${device.type === 'sensor' ? 'sensor-card' : ''}
-                                                    ${device.type === 'switch' ? 'switch-card' : ''}" 
-                                         data-device-id="${device.id}"
-                                         data-state="${currentState.state || 'unknown'}"
-                                         ${(device.type === 'switch') ? 'data-action="toggle"' : ''}>
-                                        <div class="device-controls">
-                                            ${device.type === 'light' ? getLightControls({
-                                                ...device,
-                                                state: currentState.state,
-                                                attributes: currentState.attributes
-                                            }) : device.type === 'switch' ? getSwitchControls({
-                                                ...device,
-                                                state: currentState.state,
-                                                attributes: currentState.attributes
-                                            }) : getDeviceControls({
-                                                ...device,
-                                                state: currentState.state,
-                                                attributes: currentState.attributes
-                                            })}
-                                        </div>
-                                    </div>
-                                `;
-                            }).join('')}
-                        </div>
-                    </div>
-                `;
-            }).join('') :
-        `<div class="empty-state">
-            <p>No devices in this room yet</p>
-            <p class="empty-state-hint">Add devices to this room to see them here.</p>
-        </div>`;
-
-    // Only add climate bar and modal if we have climate devices
-    const climateDevices = categories.climate;
-    const climateHTML = climateDevices.length > 0 ? `
-        <div class="climate-control-bar">
-            ${climateDevices.map(device => {
-                const state = entityStates[device.id] || {};
-                const currentTemp = state.attributes?.temperature || 0;
-                const currentMode = state.state || 'off';
-                const fanMode = state.attributes?.fan_mode || 'auto';
-                const currentRoomTemp = state.attributes?.current_temperature || '—';
-                
-                const displayMode = currentMode.charAt(0).toUpperCase() + currentMode.slice(1);
-                const displayFanMode = fanMode.charAt(0).toUpperCase() + fanMode.slice(1);
-                
-                return `
-                    <div class="climate-control">
-                        <span class="climate-label">Currently ${currentRoomTemp}°C</span>
-                        <div class="temp-display" data-device-id="${device.id}">
-                            ${currentTemp}°C
-                        </div>
-                    </div>
-                    <div class="climate-control">
-                        <span class="climate-label">Mode</span>
-                        <div class="climate-value">
-                            <div class="climate-value-display" data-type="mode" data-device-id="${device.id}">
-                                <span class="current-value">${displayMode}</span>
-                            </div>
-                            <div class="climate-dropdown" data-type="mode">
-                                ${(state.attributes?.hvac_modes || []).map(mode => `
-                                    <div class="climate-option ${mode === currentMode ? 'selected' : ''}" 
-                                         data-value="${mode}">
-                                        ${mode.charAt(0).toUpperCase() + mode.slice(1)}
-                                    </div>
-                                `).join('')}
-                            </div>
-                        </div>
-                    </div>
-                    <div class="climate-control">
-                        <span class="climate-label">Fan</span>
-                        <div class="climate-value">
-                            <div class="climate-value-display" data-type="fan" data-device-id="${device.id}">
-                                <span class="current-value">${displayFanMode}</span>
-                            </div>
-                            <div class="climate-dropdown" data-type="fan">
-                                ${(state.attributes?.fan_modes || []).map(mode => `
-                                    <div class="climate-option ${mode === fanMode ? 'selected' : ''}" 
-                                         data-value="${mode}">
-                                        ${mode.charAt(0).toUpperCase() + mode.slice(1)}
-                                    </div>
-                                `).join('')}
-                            </div>
-                        </div>
-                    </div>
-                `;
-            }).join('')}
-        </div>
-        <div class="temp-modal">
-            <div class="temp-slider-container">
-                <div class="current-temp-display">20°C</div>
-                <canvas class="circular-slider" width="300" height="300"></canvas>
-                <div class="temp-loader">
-                    <div class="loader-spinner"></div>
+    // First, reload the room's devices
+    loadRoomDevices(roomId).then(() => {
+        const devices = roomDevices[roomId] || [];
+        
+        // Sort devices by their order within each category
+        const categories = {
+            scripts: devices.filter(d => d.type === 'script').sort((a, b) => a.order - b.order),
+            sensors: devices.filter(d => d.type === 'sensor').sort((a, b) => a.order - b.order),
+            lights: devices.filter(d => d.type === 'light').sort((a, b) => a.order - b.order),
+            switches: devices.filter(d => d.type === 'switch').sort((a, b) => a.order - b.order),
+            climate: devices.filter(d => d.type === 'climate').sort((a, b) => a.order - b.order),
+            media_players: devices.filter(d => d.type === 'media_player').sort((a, b) => a.order - b.order),
+            other: devices.filter(d => !['light', 'climate', 'sensor', 'switch', 'script', 'media_player'].includes(d.type))
+                .sort((a, b) => a.order - b.order),
+        };
+        // Add scripts section if there are scripts
+        const scriptsHTML = categories.scripts.length > 0 ? `
+            <div class="scripts-section">
+                <div class="scripts-container">
+                    ${categories.scripts.map(script => `
+                        <button class="script-pill" 
+                                data-device-id="${script.id}"
+                                data-state="${entityStates[script.id]?.state || 'off'}">
+                            ${script.name}
+                            <div class="script-loader"></div>
+                        </button>
+                    `).join('')}
                 </div>
             </div>
-        </div>
-    ` : '';
+        ` : '';
 
-    const roomContent = document.getElementById('roomContent');
-    roomContent.innerHTML = scriptsHTML + sectionsHTML + climateHTML;
-    
-    // Add or remove has-climate class based on presence of climate devices
-    roomContent.classList.toggle('has-climate', climateDevices.length > 0);
+        // Check if there are any non-climate devices
+        const hasNonClimateDevices = Object.entries(categories)
+            .filter(([category]) => category !== 'climate')
+            .some(([_, devices]) => devices.length > 0);
 
-    // Only setup listeners if we have devices
-    if (climateDevices.length > 0) {
-        setupDeviceControlListeners();
-        setupClimateControlListeners();
-        setupTempControlListeners();
-    } else if (hasNonClimateDevices) {
-        setupDeviceControlListeners();
-    }
+        // Define the order of categories
+        const categoryOrder = ['sensors', 'lights', 'switches', 'media_players', 'other'];
 
-    // Add script execution handler
-    document.querySelectorAll('.script-pill').forEach(pill => {
-        pill.addEventListener('click', async () => {
-            const scriptId = pill.dataset.deviceId;
-            await executeScript(scriptId, pill);
+        // Generate sections HTML only if there are non-climate devices
+        const sectionsHTML = hasNonClimateDevices ? 
+            categoryOrder
+                .map(category => {
+                    const deviceList = categories[category];
+                    if (deviceList.length === 0) return '';
+
+                    return `
+                        <div class="device-section">
+                            <h2 class="section-title">${category.charAt(0).toUpperCase() + category.slice(1).replace('_', ' ')}</h2>
+                            <div class="devices-grid">
+                                ${deviceList.map(device => {
+                                    const currentState = entityStates[device.id] || {};
+                                    
+                                    if (device.type === 'media_player') {
+                                        return getMediaPlayerCard(device, currentState);
+                                    }
+                                    
+                                    const isOn = currentState.state === 'on';
+                                    const brightness = currentState.attributes?.brightness || 0;
+                                    
+                                    return `
+                                        <div class="device-card ${device.type === 'light' ? 'light-card' : ''} 
+                                                        ${device.type === 'sensor' ? 'sensor-card' : ''}
+                                                        ${device.type === 'switch' ? 'switch-card' : ''}" 
+                                             data-device-id="${device.id}"
+                                             data-state="${currentState.state || 'unknown'}"
+                                             ${(device.type === 'switch') ? 'data-action="toggle"' : ''}>
+                                            <div class="device-controls">
+                                                ${device.type === 'light' ? getLightControls({
+                                                    ...device,
+                                                    state: currentState.state,
+                                                    attributes: currentState.attributes
+                                                }) : device.type === 'switch' ? getSwitchControls({
+                                                    ...device,
+                                                    state: currentState.state,
+                                                    attributes: currentState.attributes
+                                                }) : getDeviceControls({
+                                                    ...device,
+                                                    state: currentState.state,
+                                                    attributes: currentState.attributes
+                                                })}
+                                            </div>
+                                        </div>
+                                    `;
+                                }).join('')}
+                            </div>
+                        </div>
+                    `;
+                }).join('') :
+            `<div class="empty-state">
+                <p>No devices in this room yet</p>
+                <p class="empty-state-hint">Add devices to this room to see them here.</p>
+                <button class="add-device-btn"">
+                    <i class="fa-solid fa-plus"></i> Add Device
+                </button>
+            </div>`;
+        
+
+        // Only add climate bar and modal if we have climate devices
+        const climateDevices = categories.climate;
+        const climateHTML = climateDevices.length > 0 ? `
+            <div class="climate-control-bar">
+                ${climateDevices.map(device => {
+                    const state = entityStates[device.id] || {};
+                    const currentTemp = state.attributes?.temperature || 0;
+                    const currentMode = state.state || 'off';
+                    const fanMode = state.attributes?.fan_mode || 'auto';
+                    const currentRoomTemp = state.attributes?.current_temperature || '—';
+                    
+                    const displayMode = currentMode.charAt(0).toUpperCase() + currentMode.slice(1);
+                    const displayFanMode = fanMode.charAt(0).toUpperCase() + fanMode.slice(1);
+                    
+                    return `
+                        <div class="climate-control">
+                            <span class="climate-label">Currently ${currentRoomTemp}°C</span>
+                            <div class="temp-display" data-device-id="${device.id}">
+                                ${currentTemp}°C
+                            </div>
+                        </div>
+                        <div class="climate-control">
+                            <span class="climate-label">Mode</span>
+                            <div class="climate-value">
+                                <div class="climate-value-display" data-type="mode" data-device-id="${device.id}">
+                                    <span class="current-value">${displayMode}</span>
+                                </div>
+                                <div class="climate-dropdown" data-type="mode">
+                                    ${(state.attributes?.hvac_modes || []).map(mode => `
+                                        <div class="climate-option ${mode === currentMode ? 'selected' : ''}" 
+                                             data-value="${mode}">
+                                            ${mode.charAt(0).toUpperCase() + mode.slice(1)}
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="climate-control">
+                            <span class="climate-label">Fan</span>
+                            <div class="climate-value">
+                                <div class="climate-value-display" data-type="fan" data-device-id="${device.id}">
+                                    <span class="current-value">${displayFanMode}</span>
+                                </div>
+                                <div class="climate-dropdown" data-type="fan">
+                                    ${(state.attributes?.fan_modes || []).map(mode => `
+                                        <div class="climate-option ${mode === fanMode ? 'selected' : ''}" 
+                                             data-value="${mode}">
+                                            ${mode.charAt(0).toUpperCase() + mode.slice(1)}
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+            <div class="temp-modal">
+                <div class="temp-slider-container">
+                    <div class="current-temp-display">20°C</div>
+                    <canvas class="circular-slider" width="300" height="300"></canvas>
+                    <div class="temp-loader">
+                        <div class="loader-spinner"></div>
+                    </div>
+                </div>
+            </div>
+        ` : '';
+
+        const roomContent = document.getElementById('roomContent');
+        roomContent.innerHTML = scriptsHTML + sectionsHTML + climateHTML;
+        // Add room ID to content div for reference
+        roomContent.setAttribute('data-room-id', roomId);
+
+        // Add click handler for add device button
+        const addDeviceBtn = roomContent.querySelector('.add-device-btn');
+        if (addDeviceBtn) {
+            addDeviceBtn.onclick = () => showEntityModal(roomId);
+        }
+        
+        // Add or remove has-climate class based on presence of climate devices
+        roomContent.classList.toggle('has-climate', climateDevices.length > 0);
+
+        // Only setup listeners if we have devices
+        if (climateDevices.length > 0) {
+            setupDeviceControlListeners();
+            setupClimateControlListeners();
+            setupTempControlListeners();
+        } else if (hasNonClimateDevices) {
+            setupDeviceControlListeners();
+        }
+
+        // Add script execution handler
+        document.querySelectorAll('.script-pill').forEach(pill => {
+            pill.addEventListener('click', async () => {
+                const scriptId = pill.dataset.deviceId;
+                await executeScript(scriptId, pill);
+            });
         });
-    });
 
-    // Add this line to set up media player listeners
-    setupMediaPlayerListeners();
+        // Add this line to set up media player listeners
+        setupMediaPlayerListeners();
+        initializeEntityCards();
+    }).catch(error => {
+        console.error('Error loading room devices:', error);
+        showToast('Error loading devices. Please try again.', 3000);
+    });
 }
 
 function updateDeviceCard(card, state) {
@@ -1202,6 +1234,9 @@ function setupDeviceControlListeners() {
         const toggleCircle = card.querySelector('.toggle-circle');
         if (toggleCircle) {
             toggleCircle.addEventListener('click', (e) => {
+                if (isReorderMode) {
+                    return;
+                }
                 e.stopPropagation();
                 showLoader(card);
                 toggleDevice(deviceId);
@@ -1211,6 +1246,9 @@ function setupDeviceControlListeners() {
         // Card click for brightness modal
         if (card.classList.contains('light-card')) {
             card.addEventListener('click', (e) => {
+                if (isReorderMode) {
+                    return;
+                }
                 if (!e.target.closest('.toggle-circle')) {
                     showBrightnessModal(deviceId);
                 }
@@ -1480,9 +1518,13 @@ function showBrightnessModal(deviceId) {
 }
 
 function setupClimateControlListeners() {
+    
     // Temperature controls
     document.querySelectorAll('.temp-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
+            if (isReorderMode) {
+                return;
+            }
             const deviceId = btn.dataset.deviceId;
             const action = btn.dataset.action;
             const state = entityStates[deviceId];
@@ -1495,6 +1537,9 @@ function setupClimateControlListeners() {
     // Custom dropdown controls
     document.querySelectorAll('.climate-value-display').forEach(display => {
         display.addEventListener('click', (e) => {
+            if (isReorderMode) {
+                return;
+            }
             e.stopPropagation();
             const dropdown = display.parentElement.querySelector('.climate-dropdown');
 
@@ -1509,6 +1554,9 @@ function setupClimateControlListeners() {
 
     document.querySelectorAll('.climate-option').forEach(option => {
         option.addEventListener('click', (e) => {
+            if (isReorderMode) {
+                return;
+            }
             e.stopPropagation();
             const deviceId = option.closest('.climate-value').querySelector('.climate-value-display').dataset.deviceId;
             const type = option.closest('.climate-dropdown').dataset.type;
@@ -1538,6 +1586,9 @@ function setupClimateControlListeners() {
 
     // Close dropdowns when clicking outside
     document.addEventListener('click', () => {
+        if (isReorderMode) {
+            return;
+        }
         document.querySelectorAll('.climate-dropdown.show').forEach(dropdown => {
             dropdown.classList.remove('show');
         });
@@ -1659,6 +1710,9 @@ function setupTempControlListeners() {
 
     tempDisplays.forEach(display => {
         display.addEventListener('click', () => {
+            if (isReorderMode) {
+                return;
+            }
             const deviceId = display.dataset.deviceId;
             const currentTemp = entityStates[deviceId].attributes.temperature;
 
@@ -1803,6 +1857,17 @@ document.addEventListener('DOMContentLoaded', () => {
     loadRooms();
 
     setupSpotifyControlBar();
+
+    // Check if we need to show release notes
+    const releaseDataElement = document.getElementById('release-data');
+    if (releaseDataElement) {
+        const showRelease = releaseDataElement.dataset.showRelease === 'true';
+        const releaseData = JSON.parse(releaseDataElement.dataset.releaseData || '{}');
+        
+        if (showRelease && releaseData) {
+            showReleaseNotesPopup(releaseData);
+        }
+    }
 });
 
 // Add at the start of the file
@@ -2002,6 +2067,9 @@ function setupMediaPlayerListeners() {
         
         if (playPauseBtn) {
             playPauseBtn.addEventListener('click', (e) => {
+                if (isReorderMode) {
+                    return;
+                }
                 e.stopPropagation();
                 const state = entityStates[deviceId];
                 if (!state) return;
@@ -2012,6 +2080,9 @@ function setupMediaPlayerListeners() {
         
         if (previousBtn) {
             previousBtn.addEventListener('click', (e) => {
+                if (isReorderMode) {
+                    return;
+                }
                 e.stopPropagation();
                 sendMediaCommand(deviceId, 'media_previous_track');
             });
@@ -2019,6 +2090,9 @@ function setupMediaPlayerListeners() {
         
         if (nextBtn) {
             nextBtn.addEventListener('click', (e) => {
+                if (isReorderMode) {
+                    return;
+                }
                 e.stopPropagation();
                 sendMediaCommand(deviceId, 'media_next_track');
             });
@@ -2026,6 +2100,9 @@ function setupMediaPlayerListeners() {
         
         if (volumeSlider) {
             volumeSlider.addEventListener('change', (e) => {
+                if (isReorderMode) {
+                    return;
+                }
                 e.stopPropagation();
                 const volume = parseInt(e.target.value) / 100;
                 sendVolumeCommand(deviceId, volume);
@@ -3016,3 +3093,874 @@ function formatAlbumDuration(tracks) {
     }
     return `${minutes} min`;
 }
+
+// Add this function to handle entering/exiting reorder mode
+function toggleReorderMode(roomId) {
+    isReorderMode = !isReorderMode;
+    const room = document.querySelector(`.room-content[data-room-id="${roomId}"]`);
+    if (!room) {
+        console.error(`Could not find room with ID ${roomId}`);
+        return;
+    }
+
+    console.log('Toggling reorder mode for room:', roomId);
+    room.classList.toggle('reorder-mode', isReorderMode);
+
+    // Add or remove the "Add devices" button
+    let addDevicesButton = room.querySelector('.add-devices-button');
+    if (isReorderMode) {
+        if (!addDevicesButton) {
+            const roomName = document.querySelector(`[data-room-id="${roomId}"]`)?.querySelector('.room-name')?.textContent || 'Room';
+            addDevicesButton = document.createElement('button');
+            addDevicesButton.className = 'add-devices-button';
+            addDevicesButton.innerHTML = '<i class="fas fa-plus"></i> Add Devices';
+            addDevicesButton.onclick = () => showEntityModal(roomId, roomName);
+            room.insertBefore(addDevicesButton, room.firstChild);
+        }
+
+        // Add remove buttons to all device cards and script pills
+        room.querySelectorAll('.device-card, .script-pill').forEach(element => {
+            if (!element.querySelector('.remove-device-button')) {
+                const removeButton = document.createElement('button');
+                removeButton.className = 'remove-device-button';
+                removeButton.innerHTML = '<i class="fas fa-minus"></i>';
+                removeButton.onclick = async (e) => {
+                    e.stopPropagation();
+                    const entityId = element.dataset.deviceId;
+                    try {
+                        const response = await fetch(`/api/rooms/${roomId}/devices/${entityId}`, {
+                            method: 'DELETE'
+                        });
+                        
+                        if (!response.ok) {
+                            throw new Error('Failed to remove device');
+                        }
+
+                        await loadRoomDevices(roomId);
+                        displayRoomDevices(roomId);
+                        
+                        isReorderMode = true;
+                        toggleReorderMode(roomId);
+                        
+                        displayRoomDevices(roomId);
+                        
+                        showToast('Device removed successfully');
+                    } catch (error) {
+                        console.error('Error removing device:', error);
+                        showToast('Failed to remove device', 3000);
+                    }
+                };
+                element.appendChild(removeButton);
+            }
+        });
+    } else {
+        // Remove add devices button and remove buttons
+        if (addDevicesButton) {
+            addDevicesButton.remove();
+        }
+        room.querySelectorAll('.remove-device-button').forEach(button => button.remove());
+    }
+
+    // Initialize or destroy Sortable instances for each section
+    const deviceSections = room.querySelectorAll('.device-section .devices-grid');
+    const scriptsContainer = room.querySelector('.scripts-container');
+    
+    console.log(`Found ${deviceSections.length} device sections and ${scriptsContainer ? 1 : 0} scripts section`);
+    
+    // Handle device sections
+    deviceSections.forEach(section => {
+        const sectionType = section.closest('.device-section').querySelector('.section-title').textContent.toLowerCase();
+        console.log('Initializing sorting for section:', sectionType);
+        
+        const existingSortable = Sortable.get(section);
+        if (existingSortable) {
+            existingSortable.destroy();
+        }
+        
+        if (isReorderMode) {
+            new Sortable(section, {
+                animation: 150,
+                handle: '.device-card',
+                group: sectionType,
+                onEnd: async function(evt) {
+                    const sectionElement = evt.to.closest('.device-section');
+                    const sectionType = sectionElement.querySelector('.section-title').textContent.toLowerCase();
+                    await updateEntityOrder(roomId, sectionType);
+                }
+            });
+        }
+    });
+
+    // Handle scripts section
+    if (scriptsContainer) {
+        const existingSortable = Sortable.get(scriptsContainer);
+        if (existingSortable) {
+            existingSortable.destroy();
+        }
+        
+        if (isReorderMode) {
+            new Sortable(scriptsContainer, {
+                animation: 150,
+                handle: '.script-pill',
+                group: 'scripts',
+                onEnd: async function(evt) {
+                    await updateEntityOrder(roomId, 'scripts');
+                }
+            });
+        }
+    }
+}
+
+// Update the entity order update function to handle scripts
+async function updateEntityOrder(roomId, sectionType) {
+    const section = sectionType === 'scripts' 
+        ? document.querySelector(`.room-content[data-room-id="${roomId}"] .scripts-container`)
+        : document.querySelector(`.room-content[data-room-id="${roomId}"] .device-section .devices-grid`);
+        
+    if (!section) {
+        console.error('Could not find section');
+        return;
+    }
+
+    const entityIds = Array.from(
+        section.querySelectorAll(sectionType === 'scripts' ? '.script-pill' : '.device-card')
+    ).map(element => element.dataset.deviceId);
+    
+    console.log(`Updating order for ${sectionType}:`, entityIds);
+
+    try {
+        const response = await fetch(`/api/rooms/${roomId}/entities/reorder`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                entityIds: entityIds,
+                groupType: sectionType
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to update entity order');
+        }
+        
+        console.log('Order updated successfully');
+    } catch (error) {
+        console.error('Error updating entity order:', error);
+        showToast('Failed to save new order', 3000);
+    }
+}
+
+// Update the click handler for entity cards
+function initializeEntityCards() {
+    console.log('Initializing entity cards...');
+    const cards = document.querySelectorAll('.device-card, .script-pill');
+    console.log(`Found ${cards.length} entity cards`);
+
+    cards.forEach(card => {
+        let startTime;
+        let startTouch;
+
+        // Mouse Events
+        card.addEventListener('mousedown', (e) => {
+            console.log('Mouse down on card');
+            if (isReorderMode) return;
+            startTime = Date.now();
+            longPressTimer = setTimeout(() => {
+                console.log('Long press detected');
+                const room = card.closest('.room-content');
+                console.log('Room element:', room);
+                if (!room) {
+                    console.error('Could not find parent room element');
+                    return;
+                }
+                const roomId = room.dataset.roomId;
+                console.log('Room ID:', roomId);
+                if (roomId) {
+                    toggleReorderMode(roomId);
+                } else {
+                    console.error('Room ID not found on room element');
+                }
+            }, LONG_PRESS_DURATION);
+        });
+
+        card.addEventListener('mouseup', (e) => {
+            if (longPressTimer) {
+                clearTimeout(longPressTimer);
+                longPressTimer = null;
+            }
+            
+            // Only handle click if it's a short press and not in reorder mode
+            if (!isReorderMode && Date.now() - startTime < LONG_PRESS_DURATION) {
+                handleCardClick(card, e);
+            }
+        });
+
+        card.addEventListener('mouseleave', () => {
+            if (longPressTimer) {
+                clearTimeout(longPressTimer);
+                longPressTimer = null;
+            }
+        });
+
+        // Touch Events
+        card.addEventListener('touchstart', (e) => {
+            if (isReorderMode) return;
+            startTime = Date.now();
+            startTouch = e.touches[0];
+            longPressTimer = setTimeout(() => {
+                console.log('Long press detected');
+                const room = card.closest('.room-content');
+                console.log('Room element:', room);
+                if (!room) {
+                    console.error('Could not find parent room element');
+                    return;
+                }
+                const roomId = room.dataset.roomId;
+                console.log('Room ID:', roomId);
+                if (roomId) {
+                    toggleReorderMode(roomId);
+                } else {
+                    console.error('Room ID not found on room element');
+                }
+            }, LONG_PRESS_DURATION);
+        }, { passive: true });
+
+        card.addEventListener('touchend', (e) => {
+            if (longPressTimer) {
+                clearTimeout(longPressTimer);
+                longPressTimer = null;
+            }
+            
+            // Only handle tap if it's a short press and not in reorder mode
+            if (!isReorderMode && Date.now() - startTime < LONG_PRESS_DURATION) {
+                handleCardClick(card, e);
+            }
+        });
+
+        card.addEventListener('touchmove', (e) => {
+            if (longPressTimer) {
+                // Cancel long press if user moves finger more than 10px
+                const touch = e.touches[0];
+                const moveThreshold = 10;
+                
+                if (Math.abs(touch.clientX - startTouch.clientX) > moveThreshold ||
+                    Math.abs(touch.clientY - startTouch.clientY) > moveThreshold) {
+                    clearTimeout(longPressTimer);
+                    longPressTimer = null;
+                }
+            }
+        }, { passive: true });
+    });
+
+    // Add click handler to exit reorder mode when clicking outside cards
+    document.addEventListener('click', (e) => {
+        if (isReorderMode && 
+            !e.target.closest('.device-card') && 
+            !e.target.closest('.add-devices-button') && // Ignore clicks on the add devices button
+            !e.target.closest('.modal-content')) {      // Ignore clicks inside the modal
+            const room = document.querySelector('.room-content.reorder-mode');
+            if (room) {
+                toggleReorderMode(room.dataset.roomId);
+            }
+        }
+    });
+}
+
+// Add this helper function to handle card clicks
+function handleCardClick(card, event) {
+    const entityId = card.dataset.entityId;
+    const domain = card.dataset.domain;
+    
+    // Your existing click handling logic here
+    if (domain === 'light' || domain === 'switch') {
+        event.preventDefault();
+        toggleDevice(entityId, card);
+    } else if (domain === 'climate') {
+        // Climate control handling
+    } else if (domain === 'media_player') {
+        // Media player handling
+    }
+    // ... rest of your click handling logic ...
+}
+
+// Add this near the top of the file with other initialization code
+function showReleaseNotesPopup(releaseData) {
+    const popup = document.createElement('div');
+    popup.className = 'release-popup';
+    popup.innerHTML = `
+        <div class="release-popup-content">
+            <h2>What's New in ${releaseData.release_version}</h2>
+            <div class="release-date">Released on ${new Date(releaseData.release_date).toLocaleDateString()}</div>
+            ${releaseData.release_notes}
+            <button class="confirm-button">Got it!</button>
+        </div>
+    `;
+
+    document.body.appendChild(popup);
+
+    // Add fade-in effect
+    setTimeout(() => popup.classList.add('show'), 10);
+
+    // Handle confirmation
+    popup.querySelector('.confirm-button').addEventListener('click', async () => {
+        try {
+            const response = await fetch('/api/release/viewed', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!response.ok) throw new Error('Failed to mark release as viewed');
+
+            // Remove popup with fade-out effect
+            popup.classList.remove('show');
+            setTimeout(() => popup.remove(), 300);
+        } catch (error) {
+            console.error('Error marking release as viewed:', error);
+        }
+    });
+}
+
+// Add these helper functions
+function getEntityIcon(domain) {
+    const iconMap = {
+        light: 'lightbulb',
+        switch: 'power-off',
+        climate: 'temperature-half',
+        sensor: 'gauge',
+        binary_sensor: 'toggle-on',
+        script: 'code',
+        media_player: 'play-circle',
+        camera: 'video',
+        cover: 'blinds',
+        fan: 'fan',
+        default: 'circle-dot'
+    };
+    return iconMap[domain] || iconMap.default;
+}
+
+async function showEntityModal(roomId, roomName) {
+    const modal = document.getElementById('entityModal');
+    const modalRoomName = document.getElementById('modalRoomName');
+    const modalEntityList = document.getElementById('modalEntityList');
+    const searchInput = document.getElementById('entitySearch');
+    const saveBtn = modal.querySelector('.modal-save');
+    
+    // Reset modal state
+    modalRoomName.textContent = roomName;
+    searchInput.value = '';
+    saveBtn.disabled = true;
+    
+    try {
+        // Get all available entities
+        const entitiesResponse = await fetch('/api/ha/entities');
+        const allEntities = await entitiesResponse.json();
+        console.log('All entities:', allEntities.length);
+        
+        // Get current room's entities
+        const roomDevicesResponse = await fetch(`/api/rooms/${roomId}/devices`);
+        const roomDevices = await roomDevicesResponse.json();
+        console.log('Room devices:', roomDevices);
+        
+        // Create a set of existing entity IDs for quick lookup
+        const existingEntityIds = new Set(roomDevices.map(device => device.id));
+        console.log('Existing entity IDs:', Array.from(existingEntityIds));
+        
+        // Check if room has a climate device
+        const hasClimate = roomDevices.some(device => device.type === 'climate');
+        console.log('Has climate:', hasClimate);
+        
+        // Filter out existing entities and handle climate devices
+        const availableEntities = allEntities.filter(entity => {
+            // Log entity being checked
+            console.log('Checking entity:', entity.entity_id, {
+                isExisting: existingEntityIds.has(entity.entity_id),
+                isClimate: entity.domain === 'climate' && hasClimate
+            });
+            
+            // Filter out existing entities
+            if (existingEntityIds.has(entity.entity_id)) {
+                return false;
+            }
+            
+            // Filter out climate entities if room already has one
+            if (hasClimate && entity.domain === 'climate') {
+                return false;
+            }
+            
+            return true;
+        });
+        
+        console.log('Available entities after filtering:', availableEntities.length);
+        
+        // Group filtered entities by domain
+        const groupedEntities = groupEntitiesByDomain(availableEntities);
+        
+        function renderEntities(searchTerm = '') {
+            const filteredEntities = searchTerm 
+                ? availableEntities.filter(e => 
+                    e.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    e.entity_id.toLowerCase().includes(searchTerm.toLowerCase()))
+                : availableEntities;
+            
+            const groupedFiltered = groupEntitiesByDomain(filteredEntities);
+            
+            modalEntityList.innerHTML = Object.entries(groupedFiltered)
+                .map(([domain, entities]) => `
+                    <div class="entity-section">
+                        <h5 class="entity-section-header">
+                            <i class="fa-solid fa-${getEntityIcon(domain)}"></i>
+                            ${domain.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
+                            ${entities.length > 0 ? `<span class="entity-count">(${entities.length})</span>` : ''}
+                        </h5>
+                        <div class="modal-entity-grid">
+                            ${entities.map(entity => `
+                                <div class="entity-card" 
+                                     data-entity-id="${entity.entity_id}" 
+                                     data-domain="${entity.domain}">
+                                    <div class="entity-icon">
+                                        <i class="fa-solid fa-${getEntityIcon(entity.domain)}"></i>
+                                    </div>
+                                    <div class="entity-friendly-name">${entity.name}</div>
+                                    <div class="entity-full-name">${entity.entity_id}</div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `).filter(section => section.includes('entity-card')).join('');
+            
+            // Add click handlers for entity cards
+            modalEntityList.querySelectorAll('.entity-card').forEach(card => {
+                card.addEventListener('click', () => {
+                    modalEntityList.querySelectorAll('.entity-card').forEach(c => 
+                        c.classList.remove('selected'));
+                    card.classList.add('selected');
+                    saveBtn.disabled = false;
+                });
+            });
+        }
+        
+        // Initial render
+        renderEntities();
+        
+        // Setup search
+        searchInput.addEventListener('input', (e) => renderEntities(e.target.value));
+        
+        // Update save button handler
+        saveBtn.onclick = async () => {
+            const selectedCard = modalEntityList.querySelector('.entity-card.selected');
+            if (!selectedCard) return;
+            
+            const entityId = selectedCard.dataset.entityId;
+            const domain = selectedCard.dataset.domain;
+            const name = selectedCard.querySelector('.entity-friendly-name').textContent;
+            
+            try {
+                const response = await fetch(`/api/rooms/${roomId}/devices`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        entity_id: entityId,
+                        name: name,
+                        domain: domain
+                    })
+                });
+
+                if (response.ok) {
+                    modal.style.display = 'none';
+                    // Refresh the room content
+                    await displayRoomDevices(roomId);
+                    showToast('Entity added successfully', 'success');
+                } else {
+                    const error = await response.json();
+                    showToast(error.error || 'Error adding entity', 'error');
+                }
+            } catch (error) {
+                console.error('Error saving entity:', error);
+                showToast('Error adding entity', 'error');
+            }
+            toggleReorderMode(roomId);
+        };
+        
+        // Show modal
+        modal.style.display = 'block';
+        
+    } catch (error) {
+        console.error('Error loading entities:', error);
+        showToast('Error loading entities', 'error');
+    }
+}
+
+function groupEntitiesByDomain(entities) {
+    const groups = {
+        script: [],
+        climate: [],
+        media_player: [],
+        light: [],
+        switch: [],
+        sensor: [],
+        binary_sensor: [],
+        other: []
+    };
+    
+    entities.forEach(entity => {
+        if (groups.hasOwnProperty(entity.domain)) {
+            groups[entity.domain].push(entity);
+        } else {
+            groups.other.push(entity);
+        }
+    });
+    
+    return Object.fromEntries(
+        Object.entries(groups).filter(([_, entities]) => entities.length > 0)
+    );
+}
+
+// Add this function to create and append the modal
+function createEntityModal() {
+    const modal = document.createElement('div');
+    modal.id = 'entityModal';
+    modal.className = 'modal';
+    modal.innerHTML = `
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4>Add Entities to <span id="modalRoomName"></span></h4>
+                <button type="button" class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="entity-search">
+                    <input type="text" placeholder="Search entities..." id="entitySearch">
+                </div>
+                <div id="modalEntityList">
+                    <!-- Entity sections will be dynamically added here -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="modal-cancel">Cancel</button>
+                <button type="button" class="modal-save" disabled>Add Selected</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    initializeModalEvents();
+}
+
+// Add modal initialization
+function initializeModalEvents() {
+    const entityModal = document.getElementById('entityModal');
+    const closeButton = entityModal.querySelector('.modal-close');
+    const cancelButton = entityModal.querySelector('.modal-cancel');
+    
+    [closeButton, cancelButton].forEach(button => {
+        button.addEventListener('click', () => {
+            entityModal.style.display = 'none';
+        });
+    });
+    
+    window.addEventListener('click', (e) => {
+        if (e.target === entityModal) {
+            entityModal.style.display = 'none';
+        }
+    });
+}
+
+// Call this when the page loads
+document.addEventListener('DOMContentLoaded', () => {
+    createEntityModal();
+    // ... existing initialization code ...
+});
+
+function handleEntitySelection(entityId, roomId) {
+    const loader = document.querySelector('.entity-modal .modal-loader');
+    if (loader) loader.classList.add('show');
+
+    // Get the order for the new entity (highest order + 1)
+    const currentDevices = roomDevices[roomId] || [];
+    const newOrder = currentDevices.length > 0 
+        ? Math.max(...currentDevices.map(d => d.order)) + 1 
+        : 0;
+
+    fetch('/api/setup/entities', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            entities: [{
+                entity_id: entityId,
+                name: entityStates[entityId]?.attributes?.friendly_name || entityId,
+                domain: entityId.split('.')[0],
+                rooms: [{
+                    id: roomId,
+                    order: newOrder
+                }]
+            }]
+        })
+    })
+    .then(response => response.json())
+    .then(async data => {
+        if (data.success) {
+            // Reload the room's devices
+            await loadRoomDevices(roomId);
+            
+            // Exit reorder mode
+            isReorderMode = true; // Set to true so toggleReorderMode will turn it off
+            toggleReorderMode(roomId);
+            
+            // Redisplay the room
+            displayRoomDevices(roomId);
+            
+            // Close the modal
+            const modal = document.querySelector('.entity-modal');
+            if (modal) {
+                modal.classList.remove('show');
+                setTimeout(() => modal.remove(), 300);
+            }
+            
+            showToast('Entity added successfully');
+        } else {
+            throw new Error(data.error || 'Failed to add entity');
+        }
+    })
+    .catch(error => {
+        console.error('Error adding entity:', error);
+        showToast(`Failed to add entity: ${error.message}`, 5000);
+    })
+    .finally(() => {
+        if (loader) loader.classList.remove('show');
+    });
+}
+
+function showAddEntityModal(roomId) {
+    // Remove existing modal if any
+    const existingModal = document.querySelector('.entity-modal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+
+    fetch('/api/ha/entities')
+        .then(response => response.json())
+        .then(entities => {
+            // Filter out entities that are already in the room
+            const currentDevices = roomDevices[roomId] || [];
+            const currentEntityIds = new Set(currentDevices.map(d => d.id));
+            
+            const availableEntities = entities.filter(entity => 
+                !currentEntityIds.has(entity.entity_id) &&
+                !entity.entity_id.startsWith('zone.') &&
+                !entity.entity_id.startsWith('persistent_notification.')
+            );
+
+            const modal = document.createElement('div');
+            modal.className = 'entity-modal';
+            modal.innerHTML = `
+                <div class="modal-content">
+                    <h2>Add Entity</h2>
+                    <div class="search-container">
+                        <input type="text" class="entity-search" placeholder="Search entities...">
+                    </div>
+                    <div class="entities-list">
+                        ${availableEntities.map(entity => `
+                            <div class="entity-item" data-entity-id="${entity.entity_id}">
+                                <span class="entity-name">${entity.attributes?.friendly_name || entity.entity_id}</span>
+                                <span class="entity-id">${entity.entity_id}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                    <div class="modal-loader">
+                        <div class="loader-spinner"></div>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(modal);
+
+            // Show modal with animation
+            requestAnimationFrame(() => {
+                modal.classList.add('show');
+            });
+
+            // Setup search functionality
+            const searchInput = modal.querySelector('.entity-search');
+            const entityItems = modal.querySelectorAll('.entity-item');
+
+            searchInput.addEventListener('input', (e) => {
+                const searchTerm = e.target.value.toLowerCase();
+                entityItems.forEach(item => {
+                    const name = item.querySelector('.entity-name').textContent.toLowerCase();
+                    const id = item.querySelector('.entity-id').textContent.toLowerCase();
+                    const matches = name.includes(searchTerm) || id.includes(searchTerm);
+                    item.style.display = matches ? '' : 'none';
+                });
+            });
+
+            // Setup click handlers
+            entityItems.forEach(item => {
+                item.addEventListener('click', () => {
+                    const entityId = item.dataset.entityId;
+                    handleEntitySelection(entityId, roomId);
+                });
+            });
+
+            // Close modal when clicking outside
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    modal.classList.remove('show');
+                    setTimeout(() => modal.remove(), 300);
+                }
+            });
+        })
+        .catch(error => {
+            console.error('Error fetching entities:', error);
+            showToast('Error fetching entities. Please try again.', 5000);
+        });
+}
+
+function refreshReorderMode(roomId) {
+    const room = document.querySelector(`.room-content[data-room-id="${roomId}"]`);
+    if (!room) {
+        console.error(`Could not find room with ID ${roomId}`);
+        return;
+    }
+
+    // Ensure room has reorder-mode class
+    room.classList.add('reorder-mode');
+
+    // Add the "Add devices" button if it doesn't exist
+    let addDevicesButton = room.querySelector('.add-devices-button');
+    if (!addDevicesButton) {
+        const roomName = document.querySelector(`[data-room-id="${roomId}"]`)?.querySelector('.room-name')?.textContent || 'Room';
+        addDevicesButton = document.createElement('button');
+        addDevicesButton.className = 'add-devices-button';
+        addDevicesButton.innerHTML = '<i class="fas fa-plus"></i> Add Devices';
+        addDevicesButton.onclick = () => showEntityModal(roomId, roomName);
+        room.insertBefore(addDevicesButton, room.firstChild);
+    }
+
+    // Add remove buttons to all device cards
+    room.querySelectorAll('.device-card').forEach(card => {
+        if (!card.querySelector('.remove-device-button')) {
+            const removeButton = document.createElement('button');
+            removeButton.className = 'remove-device-button';
+            removeButton.innerHTML = '<i class="fas fa-minus"></i>';
+            removeButton.onclick = async (e) => {
+                e.stopPropagation(); // Prevent card click event
+                const entityId = card.dataset.deviceId;
+                if (confirm('Are you sure you want to remove this device from the room?')) {
+                    try {
+                        const response = await fetch(`/api/rooms/${roomId}/devices/${entityId}`, {
+                            method: 'DELETE'
+                        });
+                        
+                        if (!response.ok) {
+                            throw new Error('Failed to remove device');
+                        }
+
+                        // Reload and redisplay room devices
+                        await loadRoomDevices(roomId);
+                        displayRoomDevices(roomId);
+                        
+                        // Refresh reorder mode
+                        refreshReorderMode(roomId);
+                        
+                        showToast('Device removed successfully');
+                    } catch (error) {
+                        console.error('Error removing device:', error);
+                        showToast('Failed to remove device', 3000);
+                    }
+                }
+            };
+            card.appendChild(removeButton);
+        }
+    });
+
+    // Initialize Sortable instances for each device section
+    const deviceSections = room.querySelectorAll('.device-section .devices-grid');
+    deviceSections.forEach(section => {
+        const sectionType = section.closest('.device-section').querySelector('.section-title').textContent.toLowerCase();
+        
+        // Destroy existing Sortable instance if it exists
+        const existingSortable = Sortable.get(section);
+        if (existingSortable) {
+            existingSortable.destroy();
+        }
+        
+        // Initialize new Sortable instance
+        new Sortable(section, {
+            animation: 150,
+            handle: '.device-card',
+            group: sectionType,
+            onEnd: async function(evt) {
+                const sectionElement = evt.to.closest('.device-section');
+                const sectionType = sectionElement.querySelector('.section-title').textContent.toLowerCase();
+                await updateEntityOrder(roomId, sectionType);
+            }
+        });
+    });
+}
+
+// Update handleEntitySelection to use refreshReorderMode
+function handleEntitySelection(entityId, roomId) {
+    const loader = document.querySelector('.entity-modal .modal-loader');
+    if (loader) loader.classList.add('show');
+
+    // Get the order for the new entity (highest order + 1)
+    const currentDevices = roomDevices[roomId] || [];
+    const newOrder = currentDevices.length > 0 
+        ? Math.max(...currentDevices.map(d => d.order)) + 1 
+        : 0;
+
+    fetch('/api/setup/entities', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            entities: [{
+                entity_id: entityId,
+                name: entityStates[entityId]?.attributes?.friendly_name || entityId,
+                domain: entityId.split('.')[0],
+                rooms: [{
+                    id: roomId,
+                    order: newOrder
+                }]
+            }]
+        })
+    })
+    .then(response => response.json())
+    .then(async data => {
+        if (data.success) {
+            // Reload the room's devices
+            await loadRoomDevices(roomId);
+            // Redisplay the room
+            displayRoomDevices(roomId);
+            
+            // Close the modal
+            const modal = document.querySelector('.entity-modal');
+            if (modal) {
+                modal.classList.remove('show');
+                setTimeout(() => modal.remove(), 300);
+            }
+            
+            // Refresh reorder mode
+            refreshReorderMode(roomId);
+            
+            showToast('Entity added successfully');
+        } else {
+            throw new Error(data.error || 'Failed to add entity');
+        }
+    })
+    .catch(error => {
+        console.error('Error adding entity:', error);
+        showToast(`Failed to add entity: ${error.message}`, 5000);
+    })
+    .finally(() => {
+        if (loader) loader.classList.remove('show');
+    });
+}
+
+

@@ -570,3 +570,8 @@ input#spotify_client_secret {
     background: #fafafa;
     width: -webkit-fill-available;
 }
+
+div#settings-sticky {
+    position: sticky;
+    top: 50px;
+}

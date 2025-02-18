@@ -88,8 +88,23 @@ def dashboard():
     config = Configuration.query.first()
     if not config or not config.is_configured:
         return redirect(url_for('settings'))
+    
+    # Check release notes
+    release_data = None
+    show_release = False
+    try:
+        release_file = 'release.json'
+        if os.path.exists(release_file):
+            with open(release_file, 'r') as f:
+                release_data = json.load(f)
+                
+            # If not viewed, mark as viewed and save
+            if not release_data.get('release_viewed', True):
+                show_release = True
+    except Exception as e:
+        logger.error(f"Error reading release notes: {str(e)}")
         
-    return render_template('dashboard.html', setup_required=False)
+    return render_template('dashboard.html', setup_required=False, show_release=show_release, release_data=release_data)
 
 @app.route("/api/setup/ha", methods=['POST'])
 def setup_ha():
@@ -1047,6 +1062,24 @@ def get_album_details(album_id):
         album = sp.album(album_id)
         return jsonify(album)
     except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route("/api/release/viewed", methods=['POST'])
+def mark_release_viewed():
+    try:
+        release_file = 'release.json'
+        if os.path.exists(release_file):
+            with open(release_file, 'r') as f:
+                release_data = json.load(f)
+            
+            release_data['release_viewed'] = True
+            
+            with open(release_file, 'w') as f:
+                json.dump(release_data, f, indent=4)
+                
+        return jsonify({'success': True})
+    except Exception as e:
+        logger.error(f"Error marking release as viewed: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 if __name__ == "__main__":
