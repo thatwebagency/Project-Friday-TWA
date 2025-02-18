@@ -678,12 +678,34 @@ function loadSpotifyLibrary() {
     // Show search bar
     searchBar.style.display = 'block';
     
+    // Create a timeout for the loading message
+    const loadingTimeout = setTimeout(() => {
+        const roomContent = document.getElementById('roomContent');
+        const existingMessage = roomContent.querySelector('.spotify-loading-message');
+        
+        if (!existingMessage && roomContent.querySelector('.spotify-loader')) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'spotify-loading-message';
+            messageDiv.textContent = 'This is taking longer than expected. Please check your terminal as you may need to reauthenticate with Spotify.';
+            roomContent.querySelector('.spotify-room').appendChild(messageDiv);
+        }
+    }, 3000);
+
     fetch('/api/spotify/library')
         .then(response => {
             if (!response.ok) throw new Error('Failed to load Spotify library');
             return response.json();
         })
         .then(data => {
+            // Clear the timeout since loading completed
+            clearTimeout(loadingTimeout);
+            
+            // Remove any existing loading message
+            const existingMessage = document.querySelector('.spotify-loading-message');
+            if (existingMessage) {
+                existingMessage.remove();
+            }
+
             const roomContent = document.getElementById('roomContent');
             roomContent.innerHTML = `
                 <div class="spotify-room">
@@ -784,12 +806,21 @@ function loadSpotifyLibrary() {
             }
         })
         .catch(error => {
+            // Clear the timeout on error
+            clearTimeout(loadingTimeout);
+            
+            // Remove any existing loading message
+            const existingMessage = document.querySelector('.spotify-loading-message');
+            if (existingMessage) {
+                existingMessage.remove();
+            }
+
             console.error('Error loading Spotify library:', error);
             const roomContent = document.getElementById('roomContent');
             roomContent.innerHTML = `
                 <div class="spotify-room">
                     <div class="spotify-error">
-                        Failed to load Spotify library. Please try again later.
+                        Failed to load Spotify library. Please try again later. Please check your Terminal as you may need to reauthenticate with Spotify.
                     </div>
                 </div>
             `;

@@ -1505,3 +1505,11 @@ button.modal-cancel {
     border-image: initial;
     border-radius: 15px;
 }
+
+.spotify-loading-message {
+    text-align: center;
+    color: #666;
+    margin-top: 1rem;
+    font-size: 0.9rem;
+    padding: 0 1rem;
+}
