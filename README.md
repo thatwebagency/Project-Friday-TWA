@@ -66,6 +66,9 @@ Follow Clean Install, if you do not already have Project Friday installed. Follo
 
 ### 🏠 Supported Devices
 
+#### Calendar
+- View calendar events for current date
+
 #### Scripts
 - Toggle scripts
 
