@@ -183,6 +183,7 @@ The application will be available at:
 Updating Project Friday is simple, follow these steps:
 
 ```bash
+git stash (stashes release.json)
 git pull
 flask db migrate
 flask db upgrade
