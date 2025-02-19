@@ -1216,13 +1216,13 @@ button.playlist-play-button:hover {
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(0, 0, 0, 0.5);
+    background: rgb(0 0 0 / 31%);
     display: flex;
     align-items: center;
     justify-content: center;
     z-index: 1000;
     opacity: 0;
-    transition: opacity 0.3s ease;
+    transition: opacity 0.3sease;
 }
 
 .release-popup.show {
@@ -1230,23 +1230,30 @@ button.playlist-play-button:hover {
 }
 
 .release-popup-content {
-    background: white;
+    background: #5454543b;
     padding: 2rem;
     border-radius: 8px;
     max-width: 500px;
     width: 90%;
     max-height: 80vh;
     overflow-y: auto;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 10px rgb(0 0 0 / 14%);
+    color: white;
+    backdrop-filter: blur(31px);
 }
 
 .release-popup h2 {
     margin-top: 0;
-    color: #333;
+    color: white;
+}
+
+.release-popup-button {
+    background: white !important;
+    color: black !important;
 }
 
 .release-date {
-    color: #666;
+    color: white;
     margin-bottom: 1rem;
     font-size: 0.9rem;
 }
@@ -1501,4 +1508,211 @@ button.modal-cancel {
     margin-top: 1rem;
     font-size: 0.9rem;
     padding: 0 1rem;
+}
+
+.horizontal-scroll-section {
+    width: 100%;
+    padding: 1rem 0;
+    /* Hide scrollbar but keep functionality */
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE and Edge */
+    scroll-behavior: smooth; /* Smooth scrolling */
+    position: relative;
+}
+
+.horizontal-scroll-section::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera */
+}
+
+.scroll-content {
+    display: flex;
+    gap: 1rem;
+    /* Enable scroll snapping */
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+    overflow-x: auto;
+}
+
+.scroll-item {
+    flex: 0 0 auto;
+    width: 100%; /* Full width minus padding */
+    scroll-snap-align: center; /* Snap to center */
+    scroll-snap-stop: always; /* Force stopping at snap points */
+}
+
+.weather-section, .calendar-section {
+    background: var(--card-background);
+    border-radius: var(--border-radius);
+    height: 100%;
+    margin: 0 auto; /* Center the cards */
+    position: relative;
+}
+
+/* Update existing calendar styles */
+.calendar-section {
+    margin-bottom: 0; /* Remove bottom margin since it's now in horizontal scroll */
+}
+
+.calendar-events {
+    display: flex;
+    flex-direction: column;
+    row-gap: 10px;
+}
+
+/* Add smooth scrolling for the calendar events */
+.calendar-events::-webkit-scrollbar {
+    width: 6px;
+}
+
+.calendar-events::-webkit-scrollbar-track {
+    background: var(--background-color);
+    border-radius: 3px;
+}
+
+.calendar-events::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 3px;
+}
+
+.calendar-events::-webkit-scrollbar-thumb:hover {
+    background: var(--text-muted);
+}
+
+.calendar-section-title {
+    font-size: 1.2em;
+    font-weight: 200;
+    margin-bottom: 15px;
+}
+
+.calendar-section {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    max-height: 100%;
+}
+
+.calendar-event {
+    display: flex;
+    flex-direction: column;
+    row-gap: 6px;
+    background: #97979738;
+    padding: 13px 13px;
+    border-radius: 3px;
+}
+
+.event-time {
+    font-size: 15px;
+    font-weight: 200;
+}
+
+.event-title {
+    font-size: 23px;
+    font-weight: 200;
+}
+
+.event-location {
+    font-size: 12px;
+    font-weight: 200;
+}
+
+.event-details {
+    display: flex;
+    flex-direction: column;
+    row-gap: 3px;
+}
+
+/* Scroll Dots Styles */
+.scroll-dots {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 12px;
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.scroll-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #434343;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.scroll-dot.active {
+    background: white;
+    transform: scale(1.2);
+}
+
+.right-arrow-weather {
+    position: absolute;
+    right: 0px;
+    top: 41%;
+    transform: translateY(-50%);
+    color: #b2b2b2;
+}
+
+/* Swipe Hint Popover */
+.swipe-hint {
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 12px 20px;
+    border-radius: 8px;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    opacity: 0; /* Start hidden */
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+    z-index: 100;
+    width: -webkit-fill-available;
+    height: 100%;
+    justify-content: center;
+}
+
+.swipe-hint-text-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.swipe-hint.show {
+    opacity: 1;
+}
+
+.swipe-animation {
+    position: absolute;
+    width: 24px;
+    height: 24px;
+    top: 38%;
+    font-size: 25px;
+}
+
+.swipe-arrow {
+    position: absolute;
+    left: 0;
+    width: 20px;
+    height: 2px;
+    animation: swipeLeft 1.5s infinite;
+}
+
+@keyframes swipeLeft {
+    0% {
+        transform: translateX(20px);
+        opacity: 0;
+    }
+    50% {
+        transform: translateX(-10px);
+        opacity: 1;
+    }
+    100% {
+        transform: translateX(-20px);
+        opacity: 0;
+    }
 }

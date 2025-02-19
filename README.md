@@ -21,6 +21,9 @@ Project Friday is a modern, simplified dashboard interface designed for Tablet d
 
 Follow Clean Install, if you do not already have Project Friday installed. Follow Upgrading if you already have Project Friday installed.
 
+- **Version 1.2.1**
+  - Added calendar display to the left sidebar for improved date navigation and event visibility
+
 - **Version 1.1.1**
   - Added Dashboard room management:
     - Reorder entities and add/remove directly from dashboard
@@ -184,6 +187,9 @@ python3 app.py
 ```
 
 ### Version History
+
+- **Version 1.2.1**
+  - Added calendar display to the left sidebar for improved date navigation and event visibility
 
 - **Version 1.1.1**
   - Added Dashboard room management functionality

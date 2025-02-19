@@ -245,6 +245,17 @@ function handleInitialStates(states) {
     // Check for entities that exist in our tracking but not in HA
     const missingEntities = Object.keys(trackedEntities).filter(entityId => !haEntityIds.has(entityId));
 
+    // Track calendar entities
+    states.forEach(state => {
+        if (state.entity_id.startsWith('calendar.')) {
+            trackedEntities[state.entity_id] = {
+                id: state.entity_id,
+                type: 'calendar',
+                name: state.attributes?.friendly_name || state.entity_id.split('.')[1]
+            };
+        }
+    });
+
     // If we found missing entities, send them to backend for removal
     if (missingEntities.length > 0) {
         fetch('/api/entities/remove', {
@@ -273,10 +284,15 @@ function handleInitialStates(states) {
 
     // Update states for existing entities
     states.forEach(state => {
-        if (state && trackedEntities[state.entity_id]) {
+        if (state && (trackedEntities[state.entity_id] || state.entity_id.startsWith('calendar.'))) {
             entityStates[state.entity_id] = state;
         }
     });
+
+    // After processing states, fetch calendar events
+    if (Object.keys(trackedEntities).some(id => id.startsWith('calendar.'))) {
+        fetchCalendarEvents();
+    }
 }
 
 function subscribeToStateChanges() {
@@ -1876,6 +1892,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     setupSpotifyControlBar();
 
+    // Add calendar events fetching
+    fetchCalendarEvents();
+    setInterval(fetchCalendarEvents, 300000); // 300000ms = 5 minutes
+
     // Check if we need to show release notes
     const releaseDataElement = document.getElementById('release-data');
     if (releaseDataElement) {
@@ -1886,7 +1906,44 @@ document.addEventListener('DOMContentLoaded', () => {
             showReleaseNotesPopup(releaseData);
         }
     }
+    
+    setupScrollDots();
 });
+
+function setupScrollDots() {
+    const scrollContent = document.querySelector('.scroll-content');
+    const dots = document.querySelectorAll('.scroll-dot');
+    const items = document.querySelectorAll('.scroll-item');
+    
+    // Update active dot based on scroll position
+    function updateActiveDot() {
+        const scrollPosition = scrollContent.scrollLeft;
+        const itemWidth = items[0].offsetWidth;
+        const activeIndex = Math.round(scrollPosition / itemWidth);
+        
+        dots.forEach((dot, index) => {
+            dot.classList.toggle('active', index === activeIndex);
+        });
+    }
+    
+    // Add click handlers to dots
+    dots.forEach((dot) => {
+        dot.addEventListener('click', () => {
+            const index = parseInt(dot.dataset.index);
+            const itemWidth = items[0].offsetWidth;
+            scrollContent.scrollTo({
+                left: itemWidth * index,
+                behavior: 'smooth'
+            });
+        });
+    });
+    
+    // Listen for scroll events
+    scrollContent.addEventListener('scroll', updateActiveDot);
+    
+    // Update on resize
+    window.addEventListener('resize', updateActiveDot);
+}
 
 // Add at the start of the file
 function hideLoader() {
@@ -3317,13 +3374,11 @@ function initializeEntityCards() {
             startTouch = e.touches[0];
             longPressTimer = setTimeout(() => {
                 const room = card.closest('.room-content');
-                console.log('Room element:', room);
                 if (!room) {
                     console.error('Could not find parent room element');
                     return;
                 }
                 const roomId = room.dataset.roomId;
-                console.log('Room ID:', roomId);
                 if (roomId) {
                     toggleReorderMode(roomId);
                 } else {
@@ -3399,7 +3454,7 @@ function showReleaseNotesPopup(releaseData) {
             <h2>What's New in ${releaseData.release_version}</h2>
             <div class="release-date">Released on ${new Date(releaseData.release_date).toLocaleDateString()}</div>
             ${releaseData.release_notes}
-            <button class="confirm-button">Got it!</button>
+            <button class="release-popup-button">Got it!</button>
         </div>
     `;
 
@@ -3409,7 +3464,7 @@ function showReleaseNotesPopup(releaseData) {
     setTimeout(() => popup.classList.add('show'), 10);
 
     // Handle confirmation
-    popup.querySelector('.confirm-button').addEventListener('click', async () => {
+    popup.querySelector('.release-popup-button').addEventListener('click', async () => {
         try {
             const response = await fetch('/api/release/viewed', {
                 method: 'POST',
@@ -3958,4 +4013,184 @@ function handleEntitySelection(entityId, roomId) {
     });
 }
 
+async function fetchCalendarEvents() {
+    if (!haSocket || haSocket.readyState !== WebSocket.OPEN) {
+        console.error('WebSocket not connected');
+        return;
+    }
 
+    // Get all calendar entities
+    const calendarEntities = Object.keys(trackedEntities).filter(id => id.startsWith('calendar.'));
+    
+    // Get today's date at start of day (midnight) and end of day (23:59:59)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Set to start of day
+    const startDateTime = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')} 00:00:00`;
+    const endDateTime = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')} 23:59:59`;
+
+    try {
+        // Fetch events for each calendar
+        const eventPromises = calendarEntities.map(async (entityId) => {
+            const msgId = getNextMessageId();
+            
+            return new Promise((resolve, reject) => {
+                // Create message handler for this specific request
+                const messageHandler = (event) => {
+                    const data = JSON.parse(event.data);
+                    if (data.id === msgId) {
+                        haSocket.removeEventListener('message', messageHandler);
+                        if (data.success) {
+                            resolve({
+                                calendar: entityId,
+                                events: data.result?.response?.[entityId]?.events || []
+                            });
+                        } else {
+                            reject(new Error(data.error || 'Failed to fetch calendar events'));
+                        }
+                    }
+                };
+
+                // Add message handler
+                haSocket.addEventListener('message', messageHandler);
+
+                // Send get_events request
+                haSocket.send(JSON.stringify({
+                    id: msgId,
+                    type: 'call_service',
+                    domain: 'calendar',
+                    service: 'get_events',
+                    target: {
+                        entity_id: entityId
+                    },
+                    service_data: {
+                        start_date_time: startDateTime,
+                        end_date_time: endDateTime
+                    },
+                    return_response: true
+                }));
+
+                // Add timeout to prevent hanging
+                setTimeout(() => {
+                    haSocket.removeEventListener('message', messageHandler);
+                    reject(new Error('Timeout waiting for calendar events'));
+                }, 10000); // 10 second timeout
+            });
+        });
+
+        // Wait for all calendar events to be fetched
+        const allEvents = await Promise.all(eventPromises);
+        
+        // Store events in a global object
+        window.calendarEvents = allEvents.reduce((acc, { calendar, events }) => {
+            acc[calendar] = events;
+            return acc;
+        }, {});
+        
+        // Trigger any UI updates needed
+        updateCalendarDisplay();
+
+    } catch (error) {
+        console.error('Error fetching calendar events:', error);
+    }
+}
+
+function mergeCalendarEvents() {
+    // Get all events from all calendars
+    const allEvents = [];
+    
+    // Iterate through each calendar's events
+    Object.entries(window.calendarEvents || {}).forEach(([calendarId, events]) => {
+        
+        // Extract calendar name from the entity ID
+        const calendarName = trackedEntities[calendarId]?.name || calendarId.split('.')[1];
+        
+        // If the calendar has events, process them
+        if (Array.isArray(events)) {
+            events.forEach(event => {
+                allEvents.push({
+                    ...event,
+                    calendarName,
+                    calendarId,
+                    // Convert ISO string to Date object for sorting
+                    startTime: new Date(event.start),
+                    endTime: new Date(event.end)
+                });
+            });
+        }
+    });
+    
+    // Sort events by start time
+    const sortedEvents = allEvents.sort((a, b) => a.startTime - b.startTime);
+    
+    return sortedEvents;
+}
+
+function updateCalendarDisplay() {
+    const events = mergeCalendarEvents();
+    const calendarSection = document.querySelector('.calendar-section');
+    
+    if (!calendarSection) {
+        console.error('Calendar section not found');
+        return;
+    }
+
+    // Format the events into HTML
+    const eventsHtml = events.length > 0 ? events.map(event => {
+        const startTime = event.startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const endTime = event.endTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        
+        const eventHtml = `
+            <div class="calendar-event" data-calendar-id="${event.calendarId}">
+                <div class="event-time">
+                    ${startTime} - ${endTime}
+                </div>
+                <div class="event-details">
+                    <div class="event-title">${event.summary}</div>
+                    ${event.location ? `<div class="event-location">${event.location}</div>` : ''}
+                </div>
+            </div>
+        `;
+        return eventHtml;
+    }).join('') : '<div class="no-events">No events scheduled for today</div>';
+
+    // Update the calendar section
+    calendarSection.innerHTML = `
+        <div class="calendar-section-title">
+            <span>Today's Events</span>
+        </div>
+        <div class="calendar-events">
+            ${eventsHtml}
+        </div>
+    `;
+
+    // Show swipe hint after calendar update if there are events
+    if (events.length > 0) {
+        showSwipeHint();
+    }
+}
+
+function showSwipeHint() {
+    const events = mergeCalendarEvents();
+    if (events && events.length > 0) {
+        const swipeHint = document.querySelector('.swipe-hint');
+        if (swipeHint) {
+            // Show the hint
+            swipeHint.classList.add('show');
+            
+            // Hide after 5 seconds
+            setTimeout(() => {
+                swipeHint.classList.remove('show');
+            }, 5000);
+        }
+    }
+}
+
+// Add to your initialization code
+document.addEventListener('DOMContentLoaded', () => {
+    // ... existing initialization code ...
+    
+    // Show swipe hint after calendar events are loaded
+    fetchCalendarEvents().then(() => {
+        showSwipeHint();
+    });
+});

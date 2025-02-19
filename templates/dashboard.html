@@ -35,12 +35,45 @@
             <span class="current-date" id="currentDate"></span>
         </div>
         
-        <div class="weather-section">
-            <div class="current-weather">
-                <!-- Current weather will be populated here -->
+        <div class="horizontal-scroll-section">
+            <!-- Add the swipe hint -->
+            <div class="swipe-hint">
+                <div class="swipe-hint-text-wrapper">
+                    <span>Calendar events available</span>
+                    <span>Swipe left for calendar</span>
+                </div>
+                <div class="swipe-animation">
+                    <div class="swipe-arrow"><i class="fa-solid fa-hand-pointer"></i></div>
+                </div>
             </div>
-            <div class="hourly-forecast">
-                <!-- Hourly forecast will be populated here -->
+            
+            <div class="scroll-content">
+                <div class="scroll-item">
+                    <div class="weather-section">
+                        <div class="current-weather">
+                            <!-- Current weather will be populated here -->
+                        </div>
+                        <div class="hourly-forecast">
+                            <!-- Hourly forecast will be populated here -->
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="scroll-item">
+                    <div class="calendar-section">
+                        <div class="calendar-section-title">
+                            <span>Today's Events</span>
+                        </div>
+                        <div class="calendar-events">
+                            <!-- Calendar events will be populated here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- Add scroll dots -->
+            <div class="scroll-dots">
+                <div class="scroll-dot active" data-index="0"></div>
+                <div class="scroll-dot" data-index="1"></div>
             </div>
         </div>
     </div>
@@ -262,5 +295,7 @@
     background: #1ed760;
     transform: scale(1.05);
 }
+
+
 </style>
 {% endblock %}
