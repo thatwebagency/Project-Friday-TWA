@@ -698,7 +698,7 @@ function loadSpotifyLibrary() {
         if (!existingMessage && roomContent.querySelector('.spotify-loader')) {
             const messageDiv = document.createElement('div');
             messageDiv.className = 'spotify-loading-message';
-            messageDiv.textContent = 'This is taking longer than expected. Please check your terminal as you may need to reauthenticate with Spotify.';
+            messageDiv.textContent = 'This is taking longer than expected. You may need to reauthenticate with Spotify.';
             roomContent.querySelector('.spotify-room').appendChild(messageDiv);
         }
     }, 3000);

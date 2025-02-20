@@ -101,6 +101,9 @@
         <div class="settings-tabs">
             <button class="tab-button active" data-tab="ha-config">Home Assistant</button>
             <button class="tab-button" data-tab="rooms">Rooms</button>
+            <button class="tab-button spotify-tab" data-tab="spotify">
+                <i class="fab fa-spotify"></i> Spotify
+            </button>
         </div>
         <div class="settings-tab-content">
             <!-- Home Assistant Config Tab -->
@@ -121,6 +124,31 @@
             <div class="tab-panel" id="rooms">
                 <div class="rooms-list">
                     <!-- Rooms will be populated here -->
+                </div>
+            </div>
+            
+            <!-- Spotify Config Tab -->
+            <div class="tab-panel" id="spotify">
+                <div class="spotify-settings">
+                    <div id="spotifyStatus" class="spotify-status">
+                        Checking Spotify connection...
+                    </div>
+                    <form id="spotifyConfigForm">
+                        <div class="form-group">
+                            <label for="spotifyClientId">Client ID</label>
+                            <input type="text" id="spotifyClientId" name="client_id" placeholder="Enter your Spotify Client ID">
+                        </div>
+                        <div class="form-group">
+                            <label for="spotifyClientSecret">Client Secret</label>
+                            <input type="password" id="spotifyClientSecret" name="client_secret" placeholder="Enter your Spotify Client Secret">
+                        </div>
+                        <button type="submit" class="save-button">Save Credentials</button>
+                    </form>
+                    <div class="spotify-auth-section" style="display: none;">
+                        <a href="#" id="spotifyAuthLink" class="spotify-auth-button">
+                            <i class="fab fa-spotify"></i> Connect with Spotify
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>

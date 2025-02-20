@@ -14,12 +14,19 @@ Project Friday is a modern, simplified dashboard interface designed for Tablet d
 
 - [Core Features](#core-features)
 - [Clean Installation](#clean-installation)
+- [First time setup](#first-time-setup)
+- [Spotify Setup](#spotify-setup)
 - [Upgrading](#upgrading)
 - [Contributing](#contributing)
 
 ## New version available
 
 Follow Clean Install, if you do not already have Project Friday installed. Follow Upgrading if you already have Project Friday installed.
+
+**Version 1.2.2**
+  - Updated Spotify integration from CLI to Interface
+  - Configure your Spotify Client ID and Secret in settings
+  - Authorise and link your Spotify account in a visual way rather than CLI input
 
 - **Version 1.2.1**
   - Added calendar display to the left sidebar for improved date navigation and event visibility
@@ -141,7 +148,6 @@ python app.py
 When you first run the application, you'll be prompted via command line to enter:
 - Weather API key from [weatherapi.com](https://www.weatherapi.com)
 - Your location (city name or coordinates)
-- Your Client ID and Secret Key from your Spotify Developer app (Not required to run Project Friday)
 
 These will be automatically saved to a `.env` file.
 
@@ -150,25 +156,24 @@ The application will be available at:
 - Local: `http://localhost:8165`
 - Network: `http://LOCALNETWORKIP:8165`
 
-### Spotify Setup - PREMIUM ACCOUNT REQUIRED
+### Spotify Setup
+## PREMIUM ACCOUNT REQUIRED
 - Go to https://developer.spotify.com/dashboard
 - Create a new app
 - Give the app a name
-- Set the redirect URL as http://localhost:8888
+- Set the redirect URL as http://127.0.0.1:8165
 - Select WEB API
 - Save
 - Click the new app and click "Settings"
 - Copy your Client ID and Secret
 - Run Project Friday
-- Enter "y" when asked if you want to setup Spotify
-- Enter your Client ID and Secret
-- Paste the link shown in your browser, Accept access
-- Copy the redirected URL in the URL bar
-- Paste back in the Project Friday CLI and press enter
-- Spotify is now integrated
+- Navigate to the Settings page (/settings OR gear icon on Dashboard)
+- Click "Spotify" and enter your Client ID and Client Secret & click Save
+- When the page reloads, click the "Connect Spotify" button and follow the prompts
+- Success, you're now connected to Spotify.
 
 
-### First-Time Setup
+### First Time Setup
 
 1. Access Project Friday at the URL
 2. Enter your Home Assistant details:

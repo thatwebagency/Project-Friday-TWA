@@ -144,6 +144,7 @@
                 <button class="tab-button active" data-tab="connection">Connection</button>
                 <button class="tab-button" data-tab="rooms">Rooms</button>
                 <button class="tab-button" data-tab="entities">Entities</button>
+                <button class="tab-button" data-tab="spotify">Spotify</button>
             </div>
         </div>
     </div>
@@ -231,6 +232,52 @@
                     </div>
                 </div>
             </div>
+        </div>
+
+        <div class="tab-content" id="spotify-tab">
+            <h3 class="setup-step-title">Spotify Integration</h3>
+            
+            {% if not client_id or not client_secret %}
+                <!-- Step 1: No credentials configured -->
+                <div class="spotify-status">
+                    <i class="fab fa-spotify"></i> Not configured
+                </div>
+                <form id="spotifyConfig">
+                    <div class="form-group">
+                        <input type="text" 
+                               name="spotify_client_id" 
+                               placeholder="Spotify Client ID"
+                               required>
+                        <small class="help-text">Found in your Spotify Developer Dashboard</small>
+                    </div>
+                    <div class="form-group">
+                        <input type="text" 
+                               name="spotify_client_secret" 
+                               placeholder="Spotify Client Secret"
+                               required>
+                        <small class="help-text">Found in your Spotify Developer Dashboard</small>
+                    </div>
+                    <div class="setup-step-buttons">
+                        <button type="submit" id="spotifySetupButton">Save Credentials</button>
+                    </div>
+                </form>
+            {% elif not spotify_connected and auth_url %}
+                <!-- Step 2: Has credentials but needs authorization -->
+                <div class="spotify-status">
+                    <i class="fab fa-spotify"></i> Not connected
+                </div>
+                <div class="setup-step-buttons">
+                    <a href="{{ auth_url }}" class="button">Connect Spotify</a>
+                </div>
+            {% elif spotify_connected and auth_url %}
+                <!-- Step 3: Fully connected -->
+                <div class="spotify-status connected">
+                    <i class="fab fa-spotify"></i> Connected to Spotify
+                </div>
+                <div class="setup-step-buttons">
+                    <a href="{{ auth_url }}" class="button">Reconnect Spotify</a>
+                </div>
+            {% endif %}
         </div>
 
     </div>

@@ -33,18 +33,17 @@ def initialize_spotify_client():
     try:
         client_id = os.getenv('SPOTIPY_CLIENT_ID')
         client_secret = os.getenv('SPOTIPY_CLIENT_SECRET')
-        
-        if not client_id or not client_secret:
-            logger.warning('Spotify credentials not configured')
-            return None
-            
-        auth_manager = SpotifyOAuth(
+        cache_handler = spotipy.CacheFileHandler()
+        auth_manager = spotipy.oauth2.SpotifyOAuth(
             client_id=client_id,
             client_secret=client_secret,
-            redirect_uri='http://localhost:8888',
+            redirect_uri='http://localhost:8165/settings',
             scope='user-read-playback-state user-modify-playback-state playlist-read-private user-top-read user-read-currently-playing streaming user-follow-read user-read-playback-position user-read-recently-played user-library-read',
-            open_browser=False
+            show_dialog=True
         )
+
+
+
         spotify_client = spotipy.Spotify(auth_manager=auth_manager)
         spotify_client.me()  # Test the connection
         logger.info('Spotify client initialized successfully')
@@ -441,7 +440,111 @@ def get_tracked_entities():
 
 @app.route("/settings")
 def settings():
-    return render_template('settings.html')
+    client_id = os.getenv('SPOTIPY_CLIENT_ID')
+    client_secret = os.getenv('SPOTIPY_CLIENT_SECRET')
+
+    if request.args.get("spotify_client_id") and request.args.get("spotify_client_secret"):
+        client_id = request.args.get("spotify_client_id")
+        client_secret = request.args.get("spotify_client_secret")
+        
+        # Read existing .env file
+        env_path = '.env'
+        env_lines = []
+        if os.path.exists(env_path):
+            with open(env_path, 'r') as f:
+                env_lines = f.readlines()
+
+        # Update or add Spotify credentials
+        spotify_vars = {
+            'SPOTIPY_CLIENT_ID': client_id,
+            'SPOTIPY_CLIENT_SECRET': client_secret,
+            'SPOTIPY_REDIRECT_URI': 'http://localhost:8165/settings'
+        }
+
+        # Process existing lines
+        updated_lines = []
+        existing_vars = set()
+        
+        for line in env_lines:
+            line = line.strip()
+            if not line or line.startswith('#'):
+                updated_lines.append(line)
+                continue
+                
+            key = line.split('=')[0]
+            if key in spotify_vars:
+                updated_lines.append(f'{key}={spotify_vars[key]}')
+                existing_vars.add(key)
+            else:
+                updated_lines.append(line)
+
+        # Add any missing variables
+        for key, value in spotify_vars.items():
+            if key not in existing_vars:
+                updated_lines.append(f'{key}={value}')
+
+        # Write back to .env file
+        with open(env_path, 'w') as f:
+            f.write('\n'.join(updated_lines) + '\n')
+
+        # Reload environment variables
+        load_dotenv(override=True)
+        
+        return redirect('/settings#spotify')
+    
+    # Step 1: Check if credentials exist
+    if not client_id or not client_secret:
+        return render_template('settings.html', 
+                             client_id=None,
+                             client_secret=None,
+                             auth_url=None,
+                             spotify_connected=False)
+    
+    try:
+        # Initialize OAuth with existing credentials
+        cache_handler = spotipy.CacheFileHandler()
+        auth_manager = spotipy.oauth2.SpotifyOAuth(
+            client_id=client_id,
+            client_secret=client_secret,
+            redirect_uri='http://localhost:8165/settings',
+            scope='user-read-playback-state user-modify-playback-state playlist-read-private user-top-read user-read-currently-playing streaming user-follow-read user-read-playback-position user-read-recently-played user-library-read',
+            show_dialog=True,
+            cache_handler=cache_handler
+        )
+        
+        # Step 2: Handle the OAuth callback
+        if request.args.get("code"):
+            auth_manager.get_access_token(request.args.get("code"))
+            return redirect('/settings#spotify')
+        
+        # Step 3: Check if we have valid tokens
+        if auth_manager.validate_token(cache_handler.get_cached_token()):
+            # We're fully authenticated
+            global spotify_client
+            spotify_client = spotipy.Spotify(auth_manager=auth_manager)
+            auth_url = auth_manager.get_authorize_url()
+            return render_template('settings.html',
+                                 client_id=client_id,
+                                 client_secret=client_secret,
+                                 auth_url=auth_url,
+                                 spotify_connected=True)
+        else:
+            # We need to authenticate
+            auth_url = auth_manager.get_authorize_url()
+            return render_template('settings.html',
+                                 client_id=client_id,
+                                 client_secret=client_secret,
+                                 auth_url=auth_url,
+                                 spotify_connected=False)
+                                 
+    except Exception as e:
+        # If anything fails, show the connect button
+        logger.error(f"Error in Spotify authentication: {str(e)}")
+        return render_template('settings.html',
+                             client_id=client_id,
+                             client_secret=client_secret,
+                             auth_url=None,
+                             spotify_connected=False)
 
 @app.route("/api/settings/ha", methods=['GET'])
 def get_ha_settings():
@@ -729,36 +832,73 @@ def media_proxy(entity_picture):
         logger.error(f"Error proxying media: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/settings/spotify', methods=['GET', 'POST'])
-def spotify_settings():
-    if request.method == 'POST':
+@app.route('/api/settings/spotify', methods=['POST'])
+def spotify_settings_api():
+    try:
         data = request.json
         client_id = data.get('client_id')
         client_secret = data.get('client_secret')
         
-        try:
-            # Test the credentials
-            auth_manager = SpotifyClientCredentials(
-                client_id=client_id,
-                client_secret=client_secret
-            )
-            sp = spotipy.Spotify(auth_manager=auth_manager)
-            
-            # Test the connection with a simple API call
-            sp.search(q='test', limit=1)
-            
-            # Save credentials to .env if test was successful
-            save_spotify_credentials(client_id, client_secret)
-            
-            return jsonify({'status': 'success'})
-        except Exception as e:
-            return jsonify({'status': 'error', 'message': str(e)}), 400
-            
-    # GET request - return saved credentials
-    return jsonify({
-        'client_id': os.getenv('SPOTIPY_CLIENT_ID', ''),
-        'client_secret': os.getenv('SPOTIPY_CLIENT_SECRET', '')
-    })
+        if not client_id or not client_secret:
+            return jsonify({'error': 'Missing credentials'}), 400
+
+        # Save credentials to .env
+        env_path = '.env'
+        env_lines = []
+        if os.path.exists(env_path):
+            with open(env_path, 'r') as f:
+                env_lines = f.readlines()
+
+        # Update or add Spotify credentials
+        spotify_vars = {
+            'SPOTIPY_CLIENT_ID': client_id,
+            'SPOTIPY_CLIENT_SECRET': client_secret,
+            'SPOTIPY_REDIRECT_URI': 'http://localhost:8165/settings'
+        }
+
+        # Process existing lines
+        updated_lines = []
+        existing_vars = set()
+        
+        for line in env_lines:
+            line = line.strip()
+            if not line or line.startswith('#'):
+                updated_lines.append(line)
+                continue
+                
+            key = line.split('=')[0]
+            if key in spotify_vars:
+                updated_lines.append(f'{key}={spotify_vars[key]}')
+                existing_vars.add(key)
+            else:
+                updated_lines.append(line)
+
+        # Add any missing variables
+        for key, value in spotify_vars.items():
+            if key not in existing_vars:
+                updated_lines.append(f'{key}={value}')
+
+        # Write back to .env file
+        with open(env_path, 'w') as f:
+            f.write('\n'.join(updated_lines) + '\n')
+        
+        # Reload environment variables
+        load_dotenv(override=True)
+        
+        # Initialize OAuth to get auth URL
+        auth_manager = SpotifyOAuth(
+            client_id=client_id,
+            client_secret=client_secret,
+            redirect_uri='http://localhost:8165/settings',
+            scope='user-read-playback-state user-modify-playback-state playlist-read-private user-top-read user-read-currently-playing streaming user-follow-read user-read-playback-position user-read-recently-played user-library-read',
+            show_dialog=True
+        )
+        
+        auth_url = auth_manager.get_authorize_url()
+        return jsonify({'success': True, 'auth_url': auth_url})
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/spotify/status')
 def spotify_status():
@@ -778,49 +918,6 @@ def spotify_status():
         return jsonify({'connected': True})
     except:
         return jsonify({'connected': False})
-
-def save_spotify_credentials(client_id, client_secret):
-    # Read existing .env file
-    env_path = '.env'
-    env_lines = []
-    if os.path.exists(env_path):
-        with open(env_path, 'r') as f:
-            env_lines = f.readlines()
-
-    # Update or add Spotify credentials
-    spotify_vars = {
-        'SPOTIPY_CLIENT_ID': client_id,
-        'SPOTIPY_CLIENT_SECRET': client_secret
-    }
-
-    # Process existing lines
-    updated_lines = []
-    existing_vars = set()
-    
-    for line in env_lines:
-        line = line.strip()
-        if not line or line.startswith('#'):
-            updated_lines.append(line)
-            continue
-            
-        key = line.split('=')[0]
-        if key in spotify_vars:
-            updated_lines.append(f'{key}={spotify_vars[key]}')
-            existing_vars.add(key)
-        else:
-            updated_lines.append(line)
-
-    # Add any missing variables
-    for key, value in spotify_vars.items():
-        if key not in existing_vars:
-            updated_lines.append(f'{key}={value}')
-
-    # Write back to .env file
-    with open(env_path, 'w') as f:
-        f.write('\n'.join(updated_lines) + '\n')
-    
-    # Reload environment variables
-    load_dotenv(override=True)
 
 @app.route('/api/spotify/current_playback')
 def get_current_playback():
@@ -1139,11 +1236,11 @@ if __name__ == "__main__":
     
     
     # Only setup Spotify if not already configured
-    if not is_spotify_configured():
-        spotify_configured = setup_spotify()
+    #if not is_spotify_configured():
+    #    spotify_configured = setup_spotify()
     
     # Initialize Spotify client at startup
-    initialize_spotify_client()
+    #initialize_spotify_client()
     
     with app.app_context():
         db.create_all()

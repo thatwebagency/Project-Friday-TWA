@@ -575,3 +575,61 @@ div#settings-sticky {
     position: sticky;
     top: 50px;
 }
+
+/* Update Spotify-related styles */
+.spotify-status {
+    margin: 15px 0;
+    padding: 15px;
+    border-radius: 8px;
+    background: #f8f9fa;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
+}
+
+.spotify-status.connected {
+    background: #f0f9f0;
+    color: #1DB954;
+}
+
+.spotify-status i {
+    font-size: 20px;
+}
+
+.button {
+    display: inline-block;
+    padding: 10px 20px;
+    background: #1DB954;
+    color: white;
+    text-decoration: none;
+    border-radius: 8px;
+    font-size: 14px;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.button:hover {
+    background: #1ed760;
+}
+
+#spotifySetupButton {
+    background: #1DB954;
+    color: white;
+}
+
+#spotifySetupButton:hover {
+    background: #1ed760;
+}
+
+#spotifySetupButton:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+}
+
+/* Add this if you want to style the Spotify tab button differently */
+.tab-button[data-tab="spotify"].active {
+    background: #1DB954;
+    color: white;
+}

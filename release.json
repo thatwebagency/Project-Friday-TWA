@@ -1,6 +1,6 @@
 {
     "release_viewed": false,
-    "release_version": "1.2.1",
+    "release_version": "1.2.2",
     "release_date": "2025-02-25",
-    "release_notes": "<div class=\"release-notes\"><h3>New Features</h3><ul><li>Added calendar display to the left sidebar for improved date navigation and event visibility</li></ul><h3>Previous Release (1.2.0)</h3><h3>New Features</h3><ul><li>Added Dashboard room management:<ul><li>Reorder entities and add/remove them directly from the dashboard</li><li>Press and hold to enter editing mode</li><li>Click anywhere to disable editing mode</li></ul></li><li>Added release notes modal to dashboard for current release information</li><li>Various styling improvements throughout the application</li></ul><h3>Notes</h3><ul><li>Room management (creation, deletion and ordering) remains in settings</li><li>Entity management remains available in settings</li></ul></div>"
+    "release_notes": "<div class=\"release-notes\"><h3>New Features</h3><ul><li>Updated Spotify integration from CLI to Interface</li><li>Configure your Spotify Client ID and Secret in settings</li><li>Authorise and link your Spotify account in a visual way rather than CLI input</li></ul><h3>Previous Release (1.2.1)</h3><h3>New Features</h3><ul><li>Added calendar display to the left sidebar for improved date navigation and event visibility</li></ul></div>"
 }

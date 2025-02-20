@@ -50,11 +50,18 @@ function initializeTabs() {
             targetTab.style.display = 'block';
             tab.classList.add('active');
             
+            // Update URL hash without scrolling
+            const currentScrollPosition = window.scrollY;
+            window.location.hash = tab.dataset.tab;
+            window.scrollTo(0, currentScrollPosition);
+            
             // Load content based on tab
             if (tab.dataset.tab === 'rooms') {
                 loadRooms();
             } else if (tab.dataset.tab === 'entities') {
                 loadEntitiesStep();
+            } else if (tab.dataset.tab === 'spotify') {
+                checkSpotifyStatus();
             }
         });
     });
@@ -84,12 +91,39 @@ function initializeModalEvents() {
     });
 }
 
-// Update the DOMContentLoaded event listener to include the new initialization
+// Update the DOMContentLoaded event listener to handle URL hash
 document.addEventListener('DOMContentLoaded', () => {
     initializeSetup();
     initializeTabs();
     initializeMobileEvents();
     initializeModalEvents();
+    
+    // Handle URL hash for tab selection
+    const hash = window.location.hash.substring(1); // Remove the # symbol
+    if (hash) {
+        const tabButton = document.querySelector(`.tab-button[data-tab="${hash}"]`);
+        if (tabButton) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.style.display = 'none';
+            });
+            
+            // Remove active class from all tab buttons
+            document.querySelectorAll('.tab-button').forEach(t => t.classList.remove('active'));
+            
+            // Show selected tab and activate button
+            const targetTab = document.getElementById(`${hash}-tab`);
+            targetTab.style.display = 'block';
+            tabButton.classList.add('active');
+            
+            // Load content based on tab
+            if (hash === 'rooms') {
+                loadRooms();
+            } else if (hash === 'entities') {
+                loadEntitiesStep();
+            }
+        }
+    }
     
     // Add event listener for the save button in connection tab
     const saveButton = document.getElementById('nextButton');
@@ -1193,4 +1227,71 @@ function initializeMobileEvents() {
         }
     }, { passive: true });
 }
+
+// Add Spotify-related functions
+document.getElementById('spotifyConfig')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const submitButton = document.getElementById('spotifySetupButton');
+    
+    try {
+        submitButton.disabled = true;
+        submitButton.textContent = 'Saving...';
+        
+        const response = await fetch('/api/settings/spotify', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                client_id: formData.get('spotify_client_id'),
+                client_secret: formData.get('spotify_client_secret')
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            showToast('Spotify credentials saved successfully', 'success');
+            // Reload the page with spotify hash to show the auth URL
+            window.location.href = '/settings#spotify';
+            window.location.reload();
+        } else {
+            showToast(data.message || 'Failed to save Spotify credentials', 'error');
+            submitButton.disabled = false;
+            submitButton.textContent = 'Save Credentials';
+        }
+    } catch (error) {
+        showToast('Error saving Spotify credentials', 'error');
+        console.error('Error:', error);
+        submitButton.disabled = false;
+        submitButton.textContent = 'Save Credentials';
+    }
+});
+
+// Add function to check Spotify connection status
+async function checkSpotifyStatus() {
+    try {
+        const response = await fetch('/api/spotify/status');
+        const data = await response.json();
+        
+        const spotifyStatus = document.querySelector('.spotify-status');
+        if (spotifyStatus) {
+            if (data.connected) {
+                spotifyStatus.classList.add('connected');
+                spotifyStatus.innerHTML = '<i class="fab fa-spotify"></i> Connected to Spotify';
+            } else {
+                spotifyStatus.classList.remove('connected');
+                spotifyStatus.innerHTML = '<i class="fab fa-spotify"></i> Not connected';
+            }
+        }
+    } catch (error) {
+        console.error('Error checking Spotify status:', error);
+    }
+}
+
+// Call checkSpotifyStatus when the Spotify tab is shown
+document.querySelector('.tab-button[data-tab="spotify"]')?.addEventListener('click', () => {
+    checkSpotifyStatus();
+});
 
