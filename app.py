@@ -37,7 +37,7 @@ def initialize_spotify_client():
         auth_manager = spotipy.oauth2.SpotifyOAuth(
             client_id=client_id,
             client_secret=client_secret,
-            redirect_uri='http://localhost:8165/settings',
+            redirect_uri='https://dazzling-cuchufli-31be08.netlify.app',
             scope='user-read-playback-state user-modify-playback-state playlist-read-private user-top-read user-read-currently-playing streaming user-follow-read user-read-playback-position user-read-recently-played user-library-read',
             show_dialog=True
         )
@@ -458,7 +458,7 @@ def settings():
         spotify_vars = {
             'SPOTIPY_CLIENT_ID': client_id,
             'SPOTIPY_CLIENT_SECRET': client_secret,
-            'SPOTIPY_REDIRECT_URI': 'http://localhost:8165/settings'
+            'SPOTIPY_REDIRECT_URI': 'https://dazzling-cuchufli-31be08.netlify.app'
         }
 
         # Process existing lines
@@ -506,7 +506,7 @@ def settings():
         auth_manager = spotipy.oauth2.SpotifyOAuth(
             client_id=client_id,
             client_secret=client_secret,
-            redirect_uri='http://localhost:8165/settings',
+            redirect_uri='https://dazzling-cuchufli-31be08.netlify.app',
             scope='user-read-playback-state user-modify-playback-state playlist-read-private user-top-read user-read-currently-playing streaming user-follow-read user-read-playback-position user-read-recently-played user-library-read',
             show_dialog=True,
             cache_handler=cache_handler

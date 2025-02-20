@@ -242,6 +242,10 @@
                 <div class="spotify-status">
                     <i class="fab fa-spotify"></i> Not configured
                 </div>
+                <div class="spotify-status-description">
+                    <small class="help-text">You'll need to create a Spotify app to get these credentials. You'll also need your Project Friday Local IP address to finalise the setup.</small>
+                </div>
+                </div>
                 <form id="spotifyConfig">
                     <div class="form-group">
                         <input type="text" 
@@ -265,6 +269,9 @@
                 <!-- Step 2: Has credentials but needs authorization -->
                 <div class="spotify-status">
                     <i class="fab fa-spotify"></i> Not connected
+                </div>
+                <div class="spotify-status-description">
+                    <small class="help-text">You'll need your Project Friday Local IP address to finalise the setup.</small>
                 </div>
                 <div class="setup-step-buttons">
                     <a href="{{ auth_url }}" class="button">Connect Spotify</a>

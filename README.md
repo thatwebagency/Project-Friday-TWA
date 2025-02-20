@@ -161,7 +161,7 @@ The application will be available at:
 - Go to https://developer.spotify.com/dashboard
 - Create a new app
 - Give the app a name
-- Set the redirect URL as http://127.0.0.1:8165
+- Set the redirect URL as https://dazzling-cuchufli-31be08.netlify.app
 - Select WEB API
 - Save
 - Click the new app and click "Settings"
