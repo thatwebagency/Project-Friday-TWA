@@ -832,7 +832,7 @@ function loadSpotifyLibrary() {
             roomContent.innerHTML = `
                 <div class="spotify-room">
                     <div class="spotify-error">
-                        Failed to load Spotify library. Please try again later. Please check your Terminal as you may need to reauthenticate with Spotify.
+                        Failed to load Spotify library. Please try again later. Go to Settings and re-authorise your Spotify account.
                     </div>
                 </div>
             `;
