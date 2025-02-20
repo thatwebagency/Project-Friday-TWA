@@ -161,7 +161,13 @@ The application will be available at:
 - Go to https://developer.spotify.com/dashboard
 - Create a new app
 - Give the app a name
-- Set the redirect URL as https://dazzling-cuchufli-31be08.netlify.app to use the Project Friday redirect proxy (requires more steps when authenticating) OR set your Project Friday machine local network IP (eg. 192.168.4.1:8165/settings)
+
+- Set the redirect URL as:
+  - https://dazzling-cuchufli-31be08.netlify.app to use the Project Friday redirect proxy (requires more steps when authenticating)
+    OR
+  - set your Project Friday machine local network IP (eg. 192.168.4.1:8165/settings)
+** If using local network IP add the following to your .env file SPOTIPY_REDIRECT_URI=YOUR_LOCAL_IP_AND_PORT **
+
 - Select WEB API
 - Save
 - Click the new app and click "Settings"

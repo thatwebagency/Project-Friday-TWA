@@ -34,8 +34,10 @@ def initialize_spotify_client():
         client_id = os.getenv('SPOTIPY_CLIENT_ID')
         client_secret = os.getenv('SPOTIPY_CLIENT_SECRET')
         redirect_uri = os.getenv('SPOTIPY_REDIRECT_URI')
+
         if not redirect_uri:
             redirect_uri = 'https://dazzling-cuchufli-31be08.netlify.app'
+        
         cache_handler = spotipy.CacheFileHandler()
         auth_manager = spotipy.oauth2.SpotifyOAuth(
             client_id=client_id,
@@ -853,6 +855,7 @@ def spotify_settings_api():
         data = request.json
         client_id = data.get('client_id')
         client_secret = data.get('client_secret')
+        redirect_uri = os.getenv('SPOTIPY_REDIRECT_URI')
         
         if not client_id or not client_secret:
             return jsonify({'error': 'Missing credentials'}), 400
@@ -864,11 +867,14 @@ def spotify_settings_api():
             with open(env_path, 'r') as f:
                 env_lines = f.readlines()
 
+        if not redirect_uri:
+            redirect_uri = 'https://dazzling-cuchufli-31be08.netlify.app'
+
         # Update or add Spotify credentials
         spotify_vars = {
             'SPOTIPY_CLIENT_ID': client_id,
             'SPOTIPY_CLIENT_SECRET': client_secret,
-            'SPOTIPY_REDIRECT_URI': 'http://localhost:8165/settings'
+            'SPOTIPY_REDIRECT_URI': redirect_uri
         }
 
         # Process existing lines
@@ -899,12 +905,12 @@ def spotify_settings_api():
         
         # Reload environment variables
         load_dotenv(override=True)
-        
+
         # Initialize OAuth to get auth URL
         auth_manager = SpotifyOAuth(
             client_id=client_id,
             client_secret=client_secret,
-            redirect_uri='http://localhost:8165/settings',
+            redirect_uri=redirect_uri,
             scope='user-read-playback-state user-modify-playback-state playlist-read-private user-top-read user-read-currently-playing streaming user-follow-read user-read-playback-position user-read-recently-played user-library-read',
             show_dialog=True
         )
@@ -1011,6 +1017,10 @@ def setup_spotify():
     # Get credentials from user
     client_id = input("Enter your Spotify Client ID: ").strip()
     client_secret = input("Enter your Spotify Client Secret: ").strip()
+    redirect_uri = os.getenv('SPOTIPY_REDIRECT_URI')
+    
+    if not redirect_uri:
+        redirect_uri = 'https://dazzling-cuchufli-31be08.netlify.app'
     
     # Save credentials to .env
     env_values = {}
@@ -1024,7 +1034,7 @@ def setup_spotify():
     env_values.update({
         'SPOTIPY_CLIENT_ID': client_id,
         'SPOTIPY_CLIENT_SECRET': client_secret,
-        'SPOTIPY_REDIRECT_URI': 'http://localhost:8888'
+        'SPOTIPY_REDIRECT_URI': redirect_uri
     })
     
     # Write updated values to .env
@@ -1041,7 +1051,7 @@ def setup_spotify():
         spotify = spotipy.Spotify(auth_manager=SpotifyOAuth(
             client_id=client_id,
             client_secret=client_secret,
-            redirect_uri='http://localhost:8888',
+            redirect_uri=redirect_uri,
             scope='user-read-playback-state user-modify-playback-state playlist-read-private user-top-read user-read-currently-playing streaming user-follow-read user-read-playback-position user-read-recently-played user-library-read',
             open_browser=False
         ))
