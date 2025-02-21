@@ -1,6 +1,6 @@
 {
     "release_viewed": false,
-    "release_version": "1.2.2",
+    "release_version": "1.2.3",
     "release_date": "2025-02-25",
-    "release_notes": "<div class=\"release-notes\"><h3>New Features</h3><ul><li>Updated Spotify integration from CLI to Interface</li><li>Configure your Spotify Client ID and Secret in settings</li><li>Authorise and link your Spotify account in a visual way rather than CLI input</li></ul><h3>Previous Release (1.2.1)</h3><h3>New Features</h3><ul><li>Added calendar display to the left sidebar for improved date navigation and event visibility</li></ul></div>"
+    "release_notes": "<div class=\"release-notes\"><h3>New Features</h3><ul><li>Mobile responsive interface</li><li>Refactored tablet design for mobile devices</li><li>Added PWA manifest for easy installation on iOS and Android devices</li></ul></div><div class=\"release-notes previous-release\"><h3>Previous Release (1.2.2)</h3><ul><li>Updated Spotify integration from CLI to Interface</li><li>Configure your Spotify Client ID and Secret in settings</li><li>Authorise and link your Spotify account in a visual way rather than CLI input</li></ul></div>"
 }

@@ -1908,6 +1908,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     setupScrollDots();
+    
+    setupExpandButton();
 });
 
 function setupScrollDots() {
@@ -4194,3 +4196,28 @@ document.addEventListener('DOMContentLoaded', () => {
         showSwipeHint();
     });
 });
+
+function setupExpandButton() {
+    const expandButton = document.querySelector('.expand-button');
+    const scrollSection = document.querySelector('.horizontal-scroll-section');
+    const expandIcon = document.querySelector('.expand-section-icon-mobile');
+    
+    if (!expandButton || !scrollSection) return;
+    
+    expandButton.addEventListener('click', () => {
+        const isExpanded = scrollSection.classList.contains('expanded');
+        
+        // Toggle expanded state
+        scrollSection.classList.toggle('expanded');
+        expandIcon.classList.toggle('expanded');
+        
+        // Update button text
+        const buttonText = expandButton.querySelector('span');
+        buttonText.textContent = isExpanded ? 'Click to expand' : 'Click to hide';
+        
+        // If expanding, ensure swipe hint is shown if there are events
+        if (!isExpanded) {
+            showSwipeHint();
+        }
+    });
+}

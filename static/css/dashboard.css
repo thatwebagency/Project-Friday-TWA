@@ -1,3 +1,13 @@
+html, body {
+    overscroll-behavior: none;
+}
+
+.dashboard-container {
+    overscroll-behavior: none;
+    -webkit-overflow-scrolling: auto;
+    overflow-y: auto;
+}
+
 .spotify-icon {
     color: #1DB954;
 }
@@ -1714,5 +1724,236 @@ button.modal-cancel {
     100% {
         transform: translateX(-20px);
         opacity: 0;
+    }
+}
+
+/* Mobile Styles */
+@media screen and (max-width: 768px) {
+    .dashboard-container {
+        display: flex;
+        flex-direction: column;
+        overflow-y: scroll;
+        height: auto;
+    }
+    span.time-label {
+        font-size: 22px;
+        margin: 0px;
+    }
+    .dashboard-right {
+        padding: 10px;
+        padding-right: 0px;
+    }
+    .climate-control-bar {
+        position: fixed;
+        left: 0px;
+        width: calc(100% - 20px);
+        bottom: 0px;
+        padding: 10px;
+    }
+    span.climate-label {
+        font-size: 12px;
+    }
+    .room-tab {
+        font-size: 18px;
+    }
+    div#roomContent {
+        padding-top: 5px;
+        width: calc(100% - 20px);
+    }
+    h2.section-title {
+        font-size: 17px;
+        font-weight: 300;
+        margin-bottom: 0px;
+    }
+    .device-card {
+        flex: 0 0 105px;
+        height: 105px;
+    }
+    .toggle-circle {
+        width: 40px;
+        height: 40px;
+    }
+    .sensor-value {
+        font-size: 20px;
+    }
+    .device-card.media-player-card {
+        min-width: 200px;
+        max-width: 200px;
+        height: 250px;
+    }
+    .media-title {
+        font-size: 22px;
+        text-overflow: unset;
+        white-space: pre-wrap;
+    }
+    img.friday-logo {
+        width: 30px;
+    }
+    a.settings-link {
+        top: 24px;
+    }
+    span#currentTime {
+        font-size: 40px;
+    }
+    span#currentDate {
+        font-size: 20px;
+    }
+    .spotify-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    .artist-cover {
+        width: 100px;
+        height: 100px;
+    }
+    .albums-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    .album-cover {
+        width: unset;
+        height: unset;
+    }
+    .album-name {
+        font-size: 13px;
+        font-weight: 300;
+        margin-top: 10px;
+    }
+    .album-year {
+        font-size: 11px;
+        font-weight: 200;
+    }
+    .album-header {
+        display: flex
+    ;
+        flex-direction: column;
+        align-items: center;
+    }
+    .empty-state {
+        margin: 0px;
+        margin-right: 30px;
+    }
+    .event-title {
+        font-size: 18px;
+    }
+    spotify-control-bar.show {
+        left: 0px;
+        right: unset;
+        width: calc(100% - 26px);
+        bottom: 0px;
+        position: fixed;
+        padding: 13px;
+        display: flex;
+        flex-direction: row;
+        justify-content: center;
+        align-items: center;
+        row-gap: 0px;
+        height: fit-content;
+        flex-wrap: wrap;
+    }
+    .spotify-track-info {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        flex: 1;
+        justify-content: center;
+        width: 100%;
+    }
+    span.spotify-track-name {
+        text-overflow: ellipsis;
+    }
+    button.spotify-control-button.previous {
+        width: 25px;
+        max-width: 25px;
+        min-width: 20px;
+    }
+    button.spotify-control-button.next {
+        width: 25px;
+        max-width: 25px;
+        min-width: 20px;
+    }
+    .spotify-control-button.play-pause {
+        width: 30px;
+        height: 30px;
+    }
+    .spotify-content {
+        padding-bottom: 150px;
+    }
+    .dashboard-left {
+        padding-bottom: 0;
+        transition: padding-bottom 0.3sease;
+        margin: 0px;
+        width: -webkit-fill-available;
+    }
+}
+
+/* Add expand section styles */
+.expand-section {
+    display: none;  /* Hidden by default on desktop */
+    text-align: center;
+    padding: 10px 0;
+}
+
+.expand-button {
+    background: none;
+    border: none;
+    color: #ffffffa1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 auto;
+    font-family: inherit;
+    font-size: 11px;
+    width: fit-content;
+    font-weight: 300;
+}
+
+.expand-section-icon-mobile.expanded{
+    transform: rotate(180deg);
+    transition: transform 0.3s ease;
+}
+
+/* Update horizontal scroll section for mobile */
+@media screen and (max-width: 768px) {
+    .release-popup-content {
+        max-width: 70%;
+    }
+
+    .expand-section {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .horizontal-scroll-section {
+        height: 0;
+        overflow: hidden;
+        transition: height 0.3s ease, padding 0.3s ease;
+        padding: 0;
+    }
+
+    .horizontal-scroll-section.expanded {
+        height: 400px;  /* Adjust this value as needed */
+        padding: 1rem 0;
+    }
+
+    /* Add padding control for dashboard-left */
+    .dashboard-left {
+        padding-bottom: 0;  /* Default state (not expanded) */
+        transition: padding-bottom 0.3s ease;
+    }
+
+    .dashboard-left .horizontal-scroll-section.expanded {
+        padding-bottom: 20px;  /* Adjust this value as needed */
+    }
+
+    /* Add margin control for time-section */
+    .time-section {
+        margin-bottom: 0;  /* Default state (not expanded) */
+        transition: margin-bottom 0.3s ease;
+    }
+
+    .horizontal-scroll-section.expanded + .time-section {
+        margin-bottom: 20px;  /* Adjust this value as needed */
     }
 }
