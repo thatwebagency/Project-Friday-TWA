@@ -15,6 +15,21 @@ from dotenv import load_dotenv
 from flask_migrate import Migrate
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth, SpotifyClientCredentials
+from logging.config import dictConfig
+
+dictConfig({
+    'version': 1,
+    'disable_existing_loggers': True,
+    'root': {
+        'level': 'ERROR',
+        'handlers': ['null'],
+    },
+    'handlers': {
+        'null': {
+            'class': 'logging.NullHandler',
+        },
+    },
+})
 
 load_dotenv()  # This loads the .env file
 
