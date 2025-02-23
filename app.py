@@ -63,24 +63,15 @@ def get_spotify_client():
 
 @app.before_request
 def check_setup():
-    # List of endpoints that should be accessible during setup
-    setup_endpoints = ['static', 'setup', 'test_ha_connection', 'setup_ha', 'setup_rooms', 'setup_entities', 
-                      'get_ha_entities', 'get_rooms', 'dashboard', 'index', 'get_tracked_entities', 'rooms']  # Added 'get_tracked_entities'
-    
     # Allow access to setup-related endpoints
-    if (request.endpoint is None or 
-        request.endpoint in setup_endpoints or 
-        request.path == '/' or                    # Allow root URL
-        request.path.startswith('/api/setup/') or
-        request.path.startswith('/api/ha/') or    # Allow HA API endpoints
-        request.path.startswith('/api/rooms') or  # Allow rooms API endpoint
-        request.path.startswith('/api/entities')): # Allow entities API endpoints
+    if (request.endpoint is None or
+        request.path.startswith('/')): # Allow entities API endpoints
         return
     
     # Check if setup is complete
     config = Configuration.query.first()
     if not config or not config.is_configured:
-        return redirect(url_for('setup'))
+        return redirect(url_for('settings'))
 
 @app.route("/")
 def dashboard():
@@ -598,24 +589,23 @@ def update_ha_settings():
         # If connection test successful, update the configuration
         config = Configuration.query.first()
         if not config:
-            return jsonify({'error': 'No configuration found'}), 404
+            # Create new configuration if none exists
+            config = Configuration(
+                ha_url=ha_url,
+                ws_url=ws_url,
+                access_token=data['access_token'].strip(),
+                is_nabu_casa=is_nabu_casa,
+                is_configured=True  # Set to True on successful connection
+            )
+            db.session.add(config)
+        else:
+            # Update existing configuration
+            config.ha_url = ha_url
+            config.ws_url = ws_url
+            config.access_token = data['access_token'].strip()
+            config.is_nabu_casa = is_nabu_casa
+            config.is_configured = True  # Set to True on successful connection
         
-        # Store the previous configuration state
-        is_configured = config.is_configured
-        
-        # Delete existing configuration
-        Configuration.query.delete()
-        db.session.commit()
-        
-        # Create new configuration with previous is_configured state
-        new_config = Configuration(
-            ha_url=ha_url,
-            ws_url=ws_url,
-            access_token=data['access_token'].strip(),
-            is_nabu_casa=is_nabu_casa,
-            is_configured=is_configured  # Preserve the configured state
-        )
-        db.session.add(new_config)
         db.session.commit()
         
         return jsonify({'success': True})
@@ -913,11 +903,7 @@ def spotify_status():
         return jsonify({'connected': False})
         
     try:
-        auth_manager = SpotifyClientCredentials(
-            client_id=client_id,
-            client_secret=client_secret
-        )
-        sp = spotipy.Spotify(auth_manager=auth_manager)
+        sp = get_spotify_client
         sp.search(q='test', limit=1)  # Test the connection
         return jsonify({'connected': True})
     except:

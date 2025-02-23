@@ -23,24 +23,10 @@ Project Friday is a modern, simplified dashboard interface designed for Tablet d
 
 Follow Clean Install, if you do not already have Project Friday installed. Follow Upgrading if you already have Project Friday installed.
 
-**Version 1.2.2**
-  - Updated Spotify integration from CLI to Interface
-  - Configure your Spotify Client ID and Secret in settings
-  - Authorise and link your Spotify account in a visual way rather than CLI input
-
-- **Version 1.2.1**
-  - Added calendar display to the left sidebar for improved date navigation and event visibility
-
-- **Version 1.1.1**
-  - Added Dashboard room management:
-    - Reorder entities and add/remove directly from dashboard
-    - Press and hold to enter editing mode
-    - Click anywhere to disable editing mode
-  - Added release notes modal to dashboard
-  - Various styling improvements
-  - Note: Room creation/deletion and ordering remain in settings
-  - Note: Entity management remains available in settings
-
+**Version 1.2.3**
+  - Mobile responsive interface
+  - Refactored tablet design for mobile devices
+  - Added PWA manifest for easy installation on iOS and Android devices
 
 ## Features
 
@@ -196,6 +182,16 @@ python3 app.py
 ```
 
 ### Version History
+
+**Version 1.2.3**
+  - Mobile responsive interface
+  - Refactored tablet design for mobile devices
+  - Added PWA manifest for easy installation on iOS and Android devices
+
+**Version 1.2.2**
+  - Updated Spotify integration from CLI to Interface
+  - Configure your Spotify Client ID and Secret in settings
+  - Authorise and link your Spotify account in a visual way rather than CLI input
 
 - **Version 1.2.1**
   - Added calendar display to the left sidebar for improved date navigation and event visibility

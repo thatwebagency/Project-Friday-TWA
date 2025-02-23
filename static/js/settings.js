@@ -452,6 +452,15 @@ async function testAndSaveConnection() {
         
         if (response.ok) {
             showToast('Connection successful! Settings saved.', 'success');
+            // Enable rooms tab after successful connection
+            const roomsTab = document.querySelector('.tab-button[data-tab="rooms"]');
+            if (roomsTab) {
+                roomsTab.disabled = false;
+            }
+            // Optionally switch to rooms tab
+            setTimeout(() => {
+                document.querySelector('.tab-button[data-tab="rooms"]').click();
+            }, 1000);
         } else {
             showToast(data.error || 'Connection failed', 'error');
             saveButton.disabled = false;
