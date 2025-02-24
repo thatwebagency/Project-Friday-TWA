@@ -15,26 +15,12 @@ from dotenv import load_dotenv
 from flask_migrate import Migrate
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth, SpotifyClientCredentials
-from logging.config import dictConfig
-
-dictConfig({
-    'version': 1,
-    'disable_existing_loggers': True,
-    'root': {
-        'level': 'ERROR',
-        'handlers': ['null'],
-    },
-    'handlers': {
-        'null': {
-            'class': 'logging.NullHandler',
-        },
-    },
-})
+from config import Config  # Add this import
 
 load_dotenv()  # This loads the .env file
 
 app = Flask(__name__)
-app.config.from_object('config.Config')
+app.config.from_object(Config)  # Use the Config class from config.py
 db.init_app(app)
 migrate = Migrate(app, db)
 
@@ -918,7 +904,11 @@ def spotify_status():
         return jsonify({'connected': False})
         
     try:
-        sp = get_spotify_client
+        auth_manager = SpotifyClientCredentials(
+            client_id=client_id,
+            client_secret=client_secret
+        )
+        sp = spotipy.Spotify(auth_manager=auth_manager)
         sp.search(q='test', limit=1)  # Test the connection
         return jsonify({'connected': True})
     except:
