@@ -26,52 +26,178 @@ async function initializeSetup() {
     }
 }
 
-// Update initializeTabs function
-function initializeTabs() {
-    // Hide all tabs except the first one on initial load
-    document.querySelectorAll('.tab-content').forEach(content => {
-        content.style.display = 'none';
-    });
-    document.getElementById('connection-tab').style.display = 'block';
+document.addEventListener('DOMContentLoaded', () => {
+    const hiText = document.getElementById('hi-text');
+    const greetingGroup = document.querySelector('.greeting-group');
+    const welcomeGroup = document.querySelector('.welcome-group');
+    const startButton = document.querySelector('.start-button-container');
     
-    const tabs = document.querySelectorAll('.tab-button');
-    tabs.forEach(tab => {
-        tab.addEventListener('click', () => {
-            // Hide all tabs
-            document.querySelectorAll('.tab-content').forEach(content => {
-                content.style.display = 'none';
+    // Set greeting based on time of day
+    const getGreeting = () => {
+        const hour = new Date().getHours();
+        if (hour < 12) return "Good Morning";
+        if (hour < 18) return "Good Afternoon";
+        return "Good Evening";
+    };
+    
+    hiText.textContent = getGreeting();
+    
+    // Show greeting first
+    greetingGroup.style.display = 'block';
+    setTimeout(() => {
+        hiText.classList.add('fade-in');
+    }, 500);
+
+    // After 2s, fade out greeting
+    setTimeout(() => {
+        hiText.classList.add('fade-out');
+        setTimeout(() => {
+            greetingGroup.style.display = 'none';
+            
+            // Show welcome group and start button
+            welcomeGroup.style.display = 'block';
+            startButton.style.display = 'block';
+            
+            welcomeGroup.querySelectorAll('.fade-word').forEach(word => {
+                word.classList.add('fade-in');
+            });
+            startButton.querySelector('.fade-word').classList.add('fade-in');
+        }, 1000);
+    }, 2000);
+
+    // Handle button click
+    startButton.querySelector('.start-button').addEventListener('click', () => {
+        const wrapper = document.querySelector('.setup-fade-wrapper');
+        wrapper.style.transition = 'opacity 1s';
+        wrapper.style.opacity = '0';
+        setTimeout(() => wrapper.remove(), 1000);
+    });
+
+    // Add the next button handler
+    document.getElementById('nextButton')?.addEventListener('click', async () => {
+        const form = document.getElementById('haConfig');
+        const formData = new FormData(form);
+        const nextButton = document.getElementById('nextButton');
+        const statusDiv = document.getElementById('connectionStatus');
+        
+        let haUrl = formData.get('ha_url').trim();
+        const accessToken = formData.get('access_token').trim();
+        
+        if (!haUrl || !accessToken) {
+            statusDiv.innerHTML = '<div class="error">Please fill in both fields</div>';
+            statusDiv.classList.add('show');
+            return;
+        }
+
+        // Add protocol if not present
+        if (!haUrl.startsWith('http://') && !haUrl.startsWith('https://')) {
+            haUrl = 'https://' + haUrl;
+        }
+
+        // Remove trailing slash if present
+        haUrl = haUrl.replace(/\/$/, '');
+
+        statusDiv.innerHTML = '<div class="testing">Testing connection...</div>';
+        statusDiv.classList.add('show');
+        nextButton.disabled = true;
+        
+        try {
+            const response = await fetch('/api/setup/test-ha', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    ha_url: haUrl,
+                    access_token: accessToken
+                })
             });
             
-            // Remove active class from all tab buttons
-            tabs.forEach(t => t.classList.remove('active'));
+            const data = await response.json();
             
-            // Show selected tab and activate button
-            const targetTab = document.getElementById(`${tab.dataset.tab}-tab`);
-            targetTab.style.display = 'block';
-            tab.classList.add('active');
-            
-            // Load content based on tab
-            if (tab.dataset.tab === 'rooms') {
-                loadRooms();
-            } else if (tab.dataset.tab === 'entities') {
-                loadEntitiesStep();
-            } else if (tab.dataset.tab === 'spotify') {
-                initializeSpotifyTab();
+            if (data.success) {
+                statusDiv.innerHTML = '<div class="success">Connection successful! ✓</div>';
+                // Proceed with HA configuration
+                const haConfigResponse = await fetch('/api/setup/ha', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        ha_url: haUrl,
+                        access_token: accessToken
+                    })
+                });
+                
+                if (haConfigResponse.ok) {
+                    // Use the goToStep function with null checks
+                    const currentStep = document.querySelector('.setup-step[style*="display: block"]') || 
+                                     document.querySelector('.setup-step[style*="opacity: 1"]') ||
+                                     document.getElementById('step1');
+                    const targetStep = document.getElementById('step2');
+                    
+                    if (currentStep && targetStep) {
+                        currentStep.style.display = 'none';
+                        targetStep.style.display = 'block';
+                        
+                        // Update pills
+                        document.querySelectorAll('.pill').forEach(pill => {
+                            const pillStep = parseInt(pill.getAttribute('data-step'));
+                            if (pillStep <= 2) {
+                                pill.classList.add('active');
+                            } else {
+                                pill.classList.remove('active');
+                            }
+                        });
+                        
+                        // Update connecting lines
+                        document.querySelectorAll('.pill-line').forEach((line, index) => {
+                            if (index === 0) line.classList.add('active');
+                            if (index === 1) line.classList.remove('active');
+                        });
+                        
+                        // Load rooms
+                        loadRooms();
+                    }
+                }
+            } else {
+                statusDiv.innerHTML = `<div class="error">Connection failed: ${data.error || 'Could not connect to Home Assistant'}</div>`;
+                statusDiv.classList.add('show');
+                nextButton.disabled = false;
             }
-        });
+        } catch (error) {
+            statusDiv.innerHTML = `<div class="error">Connection failed: ${error.message}</div>`;
+            statusDiv.classList.add('show');
+            nextButton.disabled = false;
+        }
     });
-}
 
-document.addEventListener('DOMContentLoaded', () => {
+    // Add handler for step 2 next button
+    document.getElementById('step2Next')?.addEventListener('click', async () => {
+        const form = document.getElementById('roomConfig');
+        const formData = new FormData(form);
+        const rooms = Array.from(formData.getAll('rooms[]'));
+        
+        try {
+            const response = await fetch('/api/setup/rooms', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ rooms })
+            });
+            
+            if (response.ok) {
+                goToStep(3, false);
+                loadEntitiesStep();
+            }
+        } catch (error) {
+            console.error('Error:', error);
+        }
+    });
+
     // Initialize setup form with existing values if any
     initializeSetup();
-    initializeTabs();
-    
-    // Add event listener for the save button in connection tab
-    const saveButton = document.getElementById('nextButton');
-    if (saveButton) {
-        saveButton.addEventListener('click', testAndSaveConnection);
-    }
 });
 
 function goToStep(stepNumber, isGoingBack = false) {
@@ -413,7 +539,7 @@ function toggleRoomExpand(roomId) {
 function renderRoomEntities(roomId) {
     const entities = roomEntities.get(roomId) || [];
     const container = document.getElementById(`entity-chips-${roomId}`);
-
+    
     if (entities.length === 0) {
         container.innerHTML = `
             <div class="empty-state">
@@ -461,7 +587,7 @@ function renderRoomEntities(roomId) {
                 handle: '.entity-drag-handle',
                 group: `entities-${group.dataset.type}`,
                 onEnd: function(evt) {
-                    const roomId = parseInt(evt.to.dataset.room);
+                    const roomId = evt.to.dataset.room;
                     const groupType = evt.to.dataset.type;
                     updateEntityOrder(roomId, groupType);
                 }
@@ -478,6 +604,52 @@ function updateEntityOrder(roomId, groupType) {
 
     const entityIds = Array.from(container.querySelectorAll('.entity-chip')).map(chip => chip.dataset.entityId);
     
+    // Get all entities for this room
+    const currentEntities = roomEntities.get(roomId) || [];
+    
+    // Separate entities by group type
+    const groupEntities = currentEntities.filter(e => {
+        switch(groupType) {
+            case 'lights':
+                return e.domain === 'light';
+            case 'sensors':
+                return ['sensor', 'binary_sensor'].includes(e.domain);
+            case 'climate':
+                return e.domain === 'climate';
+            case 'other':
+                return !['light', 'sensor', 'binary_sensor', 'climate'].includes(e.domain);
+            default:
+                return false;
+        }
+    });
+
+    // Create a map of entity_id to full entity object
+    const entityMap = new Map(groupEntities.map(e => [e.entity_id, e]));
+    
+    // Create new ordered array based on the DOM order
+    const orderedGroupEntities = entityIds
+        .map(id => entityMap.get(id))
+        .filter(Boolean);
+
+    // Get entities not in this group
+    const otherEntities = currentEntities.filter(e => {
+        switch(groupType) {
+            case 'lights':
+                return e.domain !== 'light';
+            case 'sensors':
+                return !['sensor', 'binary_sensor'].includes(e.domain);
+            case 'climate':
+                return e.domain !== 'climate';
+            case 'other':
+                return ['light', 'sensor', 'binary_sensor', 'climate'].includes(e.domain);
+            default:
+                return true;
+        }
+    });
+
+    // Update the roomEntities map with the new order
+    roomEntities.set(roomId, [...otherEntities, ...orderedGroupEntities]);
+
     // Send the updated order to the server
     fetch(`/api/rooms/${roomId}/entities/reorder`, {
         method: 'POST',
@@ -485,24 +657,10 @@ function updateEntityOrder(roomId, groupType) {
             'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+            group: groupType,
             entityIds: entityIds
         })
     }).catch(error => console.error('Error saving entity order:', error));
-
-    // Update local state
-    const currentEntities = roomEntities.get(roomId) || [];
-    const entityMap = new Map(currentEntities.map(e => [e.entity_id, e]));
-    
-    // Create new ordered array based on the DOM order
-    const orderedEntities = entityIds
-        .map(id => entityMap.get(id))
-        .filter(Boolean);
-    
-    // Get entities not in this group
-    const otherEntities = currentEntities.filter(e => !entityIds.includes(e.entity_id));
-
-    // Update the roomEntities map with the new order
-    roomEntities.set(roomId, [...otherEntities, ...orderedEntities]);
 }
 
 if (document.querySelector('.setup-step:last-child')) {
@@ -662,7 +820,7 @@ async function saveEntityConfig() {
             }
         }
         
-        const response = await fetch('/api/setup/entities', {
+        const response = await fetch('/api/setup/entities?complete_setup=true', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -671,8 +829,14 @@ async function saveEntityConfig() {
         });
         
         if (response.ok) {
-            // Show success message instead of redirecting
-            alert('Configuration saved successfully');
+            // Show the setup complete modal
+            const modal = document.getElementById('setupCompleteModal');
+            modal.style.display = 'block';
+            
+            // Wait a moment, then redirect
+            setTimeout(() => {
+                window.location.href = '/';
+            }, 2000);
         } else {
             console.error('Failed to save entity configuration');
         }
@@ -688,11 +852,9 @@ if (document.querySelector('.setup-step:last-child')) {
 
 // Update the saveEntityConfig button state based on whether any rooms have entities
 function updateSaveButtonState() {
-    const saveButton = document.querySelector('#entities-tab button[onclick="saveEntityConfig()"]');
-    if (saveButton) {
-        const hasEntities = Array.from(roomEntities.values()).some(entities => entities.length > 0);
-        saveButton.disabled = !hasEntities;
-    }
+    const saveButton = document.querySelector('#step3 .setup-step-buttons button:last-child');
+    const hasEntities = Array.from(roomEntities.values()).some(entities => entities.length > 0);
+    saveButton.disabled = !hasEntities;
 }
 
 // Add helper function to get icon based on domain
@@ -711,116 +873,4 @@ function getEntityIcon(domain) {
         default: 'circle-dot'
     };
     return iconMap[domain] || iconMap.default;
-}
-
-// Add this function to handle the connection test and save
-async function testAndSaveConnection() {
-    const haUrlInput = document.querySelector('input[name="ha_url"]');
-    const accessTokenInput = document.querySelector('input[name="access_token"]');
-    const statusDiv = document.getElementById('connectionStatus');
-    const saveButton = document.getElementById('nextButton');
-    
-    // Disable the save button while testing
-    saveButton.disabled = true;
-    
-    // Show testing status
-    statusDiv.innerHTML = '<div class="testing"><i class="fas fa-spinner fa-spin"></i> Testing connection...</div>';
-    statusDiv.style.display = 'block';
-    
-    try {
-        const response = await fetch('/api/settings/ha', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                ha_url: haUrlInput.value,
-                access_token: accessTokenInput.value
-            })
-        });
-        
-        const data = await response.json();
-        
-        if (response.ok) {
-            statusDiv.innerHTML = '<div class="success"><i class="fas fa-check-circle"></i> Connection successful! Settings saved.</div>';
-            setTimeout(() => {
-                statusDiv.style.display = 'none';
-            }, 3000);
-        } else {
-            statusDiv.innerHTML = `<div class="error"><i class="fas fa-exclamation-circle"></i> ${data.error || 'Connection failed'}</div>`;
-            saveButton.disabled = false;
-        }
-    } catch (error) {
-        statusDiv.innerHTML = '<div class="error"><i class="fas fa-exclamation-circle"></i> Connection failed. Please check your settings.</div>';
-        saveButton.disabled = false;
-    }
-}
-
-async function initializeSpotifyTab() {
-    const statusContainer = document.getElementById('spotify-status');
-    const statusIndicator = statusContainer.querySelector('.status-indicator');
-    const statusText = statusContainer.querySelector('.status-text');
-    const form = document.getElementById('spotify-form');
-    
-    // Check current connection status
-    try {
-        const response = await fetch('/api/settings/spotify/status');
-        const data = await response.json();
-        
-        if (response.ok) {
-            // Load existing credentials if available
-            const credResponse = await fetch('/api/settings/spotify');
-            if (credResponse.ok) {
-                const credentials = await credResponse.json();
-                document.getElementById('spotify_client_id').value = credentials.client_id || '';
-                document.getElementById('spotify_client_secret').value = credentials.client_secret || '';
-            }
-            
-            if (data.connected) {
-                statusIndicator.classList.add('connected');
-                statusText.textContent = 'Connected to Spotify';
-            } else {
-                statusIndicator.classList.add('disconnected');
-                statusText.textContent = 'Not connected to Spotify';
-            }
-        }
-    } catch (error) {
-        console.error('Error checking Spotify status:', error);
-        statusIndicator.classList.add('disconnected');
-        statusText.textContent = 'Error checking Spotify connection';
-    }
-    
-    // Handle form submission
-    form.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        
-        const formData = new FormData(form);
-        const credentials = {
-            client_id: formData.get('spotify_client_id'),
-            client_secret: formData.get('spotify_client_secret')
-        };
-        
-        try {
-            const response = await fetch('/api/settings/spotify', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(credentials)
-            });
-            
-            if (response.ok) {
-                showToast('Spotify connected successfully', 'success');
-                statusIndicator.classList.remove('disconnected');
-                statusIndicator.classList.add('connected');
-                statusText.textContent = 'Connected to Spotify';
-            } else {
-                const error = await response.json();
-                showToast(error.message || 'Failed to connect to Spotify', 'error');
-            }
-        } catch (error) {
-            console.error('Error connecting to Spotify:', error);
-            showToast('Failed to connect to Spotify', 'error');
-        }
-    });
 }

@@ -4,10 +4,6 @@
     padding: 20px;
 }
 
-html {
-    background: #f5f5f5;
-}
-
 .settings-header {
     margin-bottom: 30px;
     font-size: 24px;
@@ -33,6 +29,14 @@ html {
     transition: color 0.3s;
 }
 
+.tab-button:hover {
+    color: #1a73e8;
+}
+
+.tab-button.active {
+    color: #1a73e8;
+}
+
 .tab-button.active::after {
     content: '';
     position: absolute;
@@ -40,7 +44,7 @@ html {
     left: 0;
     width: 100%;
     height: 2px;
-    background: #000000;
+    background: #1a73e8;
 }
 
 .tab-content {
@@ -57,6 +61,7 @@ html {
 }
 
 input[type="text"] {
+    width: 100%;
     padding: 12px;
     border: 1px solid #ddd;
     border-radius: 8px;
@@ -68,6 +73,16 @@ input[type="text"] {
     margin-top: 5px;
     color: #666;
     font-size: 12px;
+}
+
+button {
+    padding: 10px 20px;
+    background: #1a73e8;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
 }
 
 button:disabled {
@@ -86,20 +101,6 @@ button:disabled {
 /* Add initial state for first tab */
 #connection-tab.active {
     display: block !important;
-}
-
-.delete-room {
-    aspect-ratio: 1 / 1;
-    border-radius: 10px;
-    min-width: 44px;
-    padding: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 27px;
-    line-height: 1;
-    background: none;
-    color: black;
 }
 
 /* Add these styles for the connection status */
@@ -131,505 +132,4 @@ button:disabled {
 #nextButton:disabled {
     background: #ccc;
     cursor: not-allowed;
-}
-
-.settings-header-container {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 20px;
-    flex-direction: column;
-}
-
-h2.setup-header-text {
-    margin-top: 15px;
-}
-
-a.back-to-dashboard {
-    color: #ffffff !important;
-    text-decoration: none;
-    font-size: 12px;
-}
-
-/* Toast Notifications */
-.toast-container {
-    position: fixed;
-    bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 2000;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    pointer-events: none;
-    top: unset;
-    align-items: center;
-}
-
-.toast {
-    background: rgba(0, 0, 0, 0.9);
-    color: white;
-    padding: 12px 24px;
-    border-radius: 30px;
-    font-size: 14px;
-    font-weight: 300;
-    width: fit-content;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    animation: slideUp 0.3s ease-out;
-    opacity: 1;
-    pointer-events: auto;
-}
-
-.toast.success {
-    border-left: 4px solid #28a745;
-}
-
-.toast.error {
-    border-left: 4px solid #dc3545;
-}
-
-.toast.info {
-    border-left: 4px solid #17a2b8;
-}
-
-.toast i {
-    font-size: 16px;
-}
-
-.toast.success i {
-    color: #4CAF50;
-}
-
-.toast.error i {
-    color: #F44336;
-}
-
-.toast.info i {
-    color: #2196F3;
-}
-
-@keyframes slideUp {
-    from {
-        transform: translateY(200%);
-        opacity: 0;
-    }
-    to {
-        transform: translateY(0);
-        opacity: 1;
-    }
-}
-
-@keyframes fadeOut {
-    from {
-        opacity: 1;
-    }
-    to {
-        opacity: 0;
-    }
-}
-
-.toast.fade-out {
-    animation: fadeOut 0.3s ease-out forwards;
-}
-
-/* Loading state styles */
-.loading-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 40px;
-    text-align: center;
-}
-
-.loading-spinner {
-    width: 40px;
-    height: 40px;
-    border: 3px solid #f3f3f3;
-    border-top: 3px solid black;
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-    margin-bottom: 15px;
-}
-
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-}
-
-.loading-text {
-    color: #666;
-    font-size: 14px;
-}
-
-/* Add specific styling for switch chips */
-.entity-chip[data-domain="switch"] {
-    background: #e8f5e9;  /* Light green background */
-    color: #2e7d32;
-}
-
-/* Add specific styling for script chips */
-.entity-chip[data-domain="script"] {
-    background: #e3f2fd;  /* Light blue background */
-    color: #1565c0;  /* Darker blue text */
-}
-
-/* Add specific styling for media player chips */
-.entity-chip[data-domain="media_player"] {
-    background: #f3e5f5;  /* Light purple background */
-    color: #6a1b9a;  /* Darker purple text */
-}
-
-/* Add styling for entity sections in modal */
-.entity-section {
-    margin-bottom: 20px;
-}
-
-/* Update the entity-section-header styles */
-.entity-section-header {
-    font-size: 14px;
-    color: #666;
-    margin-bottom: 10px;
-    padding-bottom: 5px;
-    border-bottom: 1px solid #eee;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.entity-section-header i {
-    font-size: 12px;
-    opacity: 0.7;
-}
-
-.modal-entity-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 15px;
-    margin-bottom: 15px;
-}
-
-/* Add/update entity card styles */
-.entity-card {
-    background: #fff;
-    border: 1px solid #eee;
-    border-radius: 10px;
-    padding: 15px;
-    cursor: pointer;
-    position: relative;
-    transition: all 0.2s ease;
-}
-
-.entity-card {
-    max-width: 150px;
-}
-
-.entity-card:hover {
-    background: #f8f9fa;
-}
-
-.entity-card.selected {
-    background: #f0f7ff;
-    border-color: #007bff;
-}
-
-.entity-card .entity-icon {
-    color: #666;
-    margin-bottom: 8px;
-}
-
-.entity-card .entity-friendly-name {
-    font-weight: 500;
-    margin-bottom: 4px;
-}
-
-.entity-card .entity-full-name {
-    font-size: 12px;
-    color: #666;
-}
-
-span.help-text-climate {
-    font-size: 10px;
-    font-weight: 300;
-}
-
-/* Mobile Responsive Styles */
-@media (max-width: 768px) {
-    .settings-tabs {
-        gap: 10px;
-        overflow-x: auto;
-        padding-bottom: 5px;
-        -webkit-overflow-scrolling: touch;
-        margin-bottom: 10px;
-    }
-
-    .settings-header-container {
-        margin-bottom: 0px!important;
-    }
-
-    .tab-button {
-        padding: 8px 15px;
-        font-size: 14px;
-        white-space: nowrap;
-    }
-
-    .modal-entity-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
-
-    .entity-card {
-        max-width: none;
-    }
-}
-
-@media (max-width: 480px) {
-    .settings-container {
-        padding: 15px;
-    }
-
-    .modal-entity-grid {
-        grid-template-columns: 1fr 1fr;
-        max-width: 100%;
-        overflow-wrap: anywhere;
-    }
-
-    .entity-chips-container {
-        gap: 5px;
-    }
-
-    .entity-chip {
-        padding: 4px 8px;
-        font-size: 13px;
-    }
-
-    .room-entry {
-        flex-wrap: wrap;
-    }
-
-    .room-entry input {
-        flex: 1;
-        min-width: 200px;
-    }
-
-    .delete-room {
-        min-width: 36px;
-    }
-
-    .toast {
-        width: 90%;
-        max-width: none;
-        margin: 0 auto;
-        font-size: 13px;
-        padding: 10px 20px;
-    }
-
-    .form-group input[type="text"] {
-        font-size: 16px; /* Prevents iOS zoom on focus */
-        width: -webkit-fill-available;
-    }
-
-    input[type="text"] {
-        font-size: 16px; /* Prevents iOS zoom on focus */
-        width: -webkit-fill-available;
-    }
-
-    .help-text {
-        font-size: 11px;
-    }
-}
-
-/* Two-column layout */
-.setup-container {
-    display: grid;
-    grid-template-columns: 300px 1fr;
-    min-height: 100vh;
-    margin: 0;
-    max-width: none;
-}
-
-/* Left column styling */
-.settings-left {
-    background: black;
-    color: white;
-    padding: 30px;
-    position: relative;
-}
-
-.settings-header-container {
-    margin-bottom: 40px;
-}
-
-.setup-header-text {
-    color: white;
-    font-weight: 200;
-    margin-top: 20px;
-}
-
-/* Vertical tab styling */
-.settings-tabs {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-    border: none;
-    padding: 0;
-}
-
-.tab-button {
-    text-align: left;
-    padding: 12px 20px;
-    color: rgba(255, 255, 255, 0.7);
-    border-radius: 12px;
-    transition: all 0.2s;
-}
-
-.tab-button:hover {
-    background: rgba(255, 255, 255, 0.1);
-}
-
-.tab-button.active {
-    background: white;
-    color: black;
-}
-
-.tab-button.active::after {
-    display: none;
-}
-
-/* Right column styling */
-.settings-right {
-    padding: 40px;
-    background: #f5f5f5;
-}
-
-.tab-content {
-    background: white;
-    padding: 30px;
-    border-radius: 15px;
-    max-width: 800px;
-    margin: 0 auto;
-}
-
-/* Mobile responsive styles */
-@media (max-width: 768px) {
-    .setup-container {
-        grid-template-columns: 1fr;
-    }
-    
-    .settings-left {
-        padding: 20px;
-        padding-top: 50px;
-    }
-    
-    .settings-tabs {
-        flex-direction: row;
-        overflow-x: auto;
-
-    }
-    
-    .settings-right {
-        padding: 20px;
-    }
-}
-
-.status-container {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 20px;
-    padding: 15px;
-    background: #f5f5f5;
-    border-radius: 8px;
-}
-
-.status-indicator {
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    background: #999;
-}
-
-.status-indicator.connected {
-    background: #4CAF50;
-}
-
-.status-indicator.disconnected {
-    background: #f44336;
-}
-
-.status-text {
-    color: #666;
-}
-
-input#spotify_client_secret {
-    padding: 12px;
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    font-size: 14px;
-    background: #fafafa;
-    width: -webkit-fill-available;
-}
-
-div#settings-sticky {
-    position: sticky;
-    top: 50px;
-}
-
-/* Update Spotify-related styles */
-.spotify-status {
-    margin: 15px 0;
-    padding: 15px;
-    border-radius: 8px;
-    background: #f8f9fa;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-size: 14px;
-}
-
-.spotify-status.connected {
-    background: #f0f9f0;
-    color: #1DB954;
-}
-
-.spotify-status i {
-    font-size: 20px;
-}
-
-.button {
-    display: inline-block;
-    padding: 10px 20px;
-    background: #1DB954;
-    color: white;
-    text-decoration: none;
-    border-radius: 8px;
-    font-size: 14px;
-    border: none;
-    cursor: pointer;
-    transition: background-color 0.2s;
-}
-
-.button:hover {
-    background: #1ed760;
-}
-
-#spotifySetupButton {
-    background: #1DB954;
-    color: white;
-}
-
-#spotifySetupButton:hover {
-    background: #1ed760;
-}
-
-#spotifySetupButton:disabled {
-    background: #ccc;
-    cursor: not-allowed;
-}
-
-/* Add this if you want to style the Spotify tab button differently */
-.tab-button[data-tab="spotify"].active {
-    background: #1DB954;
-    color: white;
 }

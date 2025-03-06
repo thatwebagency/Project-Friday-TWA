@@ -1,23 +1,17 @@
 {% extends "base.html" %}
 
 {% block content %}
-{% if show_release %}
-<div id="release-data" 
-     data-show-release="true" 
-     data-release-data='{{ release_data | tojson | safe }}'></div>
-{% endif %}
-<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+<script src="{{ url_for('static', filename='js/weatherIconsSVGs.js') }}"></script>
+<script src="{{ url_for('static', filename='js/blindIconsSVGs.js') }}"></script>
 <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
 <div class="dashboard-container">
-    <!-- Add loader modal at the top -->
     <div class="loader-modal" id="loaderModal">
         <div class="loader-content">
-            <img src="{{ url_for('static', filename='images/projectfridaylogoicon.png') }}" alt="Project Friday Logo" class="loader-logo">
+            <h2>Loading...</h2>
             <div class="loader-spinner"></div>
         </div>
     </div>
-    
     <!-- Left Section -->
     <div class="dashboard-left">
         <a href="/settings" class="settings-link">
@@ -27,72 +21,30 @@
             </svg>
         </a>
         <div class="time-section">
-            <div class="logo-section">
-                <img src="{{ url_for('static', filename='images/projectfridaylogoicon.png') }}" alt="Project Friday Logo" class="friday-logo">
-            </div>
-            <span class="time-label">It's currently</span>
+            
             <span class="current-time" id="currentTime"></span>
             <span class="current-date" id="currentDate"></span>
         </div>
-        
-        <!-- Add the expand button -->
-        <div class="expand-section">
-            <div class="expand-button">
-                <span>Click to expand</span>
-                <i class="fas fa-chevron-down expand-section-icon-mobile"></i>
-            </div>
-        </div>
-        
-        <div class="horizontal-scroll-section">
-            <!-- Add the swipe hint -->
-            <div class="swipe-hint">
-                <div class="swipe-hint-text-wrapper">
-                    <span>Calendar events available</span>
-                    <span>Swipe left for calendar</span>
-                </div>
-                <div class="swipe-animation">
-                    <div class="swipe-arrow"><i class="fa-solid fa-hand-pointer"></i></div>
-                </div>
-            </div>
-            
-            <div class="scroll-content">
-                <div class="scroll-item">
-                    <div class="weather-section">
-                        <div class="current-weather">
-                            <!-- Current weather will be populated here -->
-                        </div>
-                        <div class="hourly-forecast">
-                            <!-- Hourly forecast will be populated here -->
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="scroll-item">
-                    <div class="calendar-section">
-                        <div class="calendar-section-title">
-                            <span>Today's Events</span>
-                        </div>
-                        <div class="calendar-events">
-                            <!-- Calendar events will be populated here -->
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <!-- Add scroll dots -->
-            <div class="scroll-dots">
-                <div class="scroll-dot active" data-index="0"></div>
-                <div class="scroll-dot" data-index="1"></div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Right Section -->
-    <div class="dashboard-right">
         <div class="rooms-nav">
             <div class="rooms-scroll-container" id="roomsContainer">
                 <!-- Rooms will be populated here -->
             </div>
         </div>
+        <div class="weather-section">
+            <div class="current-weather">
+                <!-- Current weather will be populated here -->
+            </div>
+            <div class="hourly-forecast">
+                <!-- Hourly forecast will be populated here -->
+            </div>
+        </div>
+
+        
+    </div>
+
+    <!-- Right Section -->
+    <div class="dashboard-right">
+        
         <div class="room-content" id="roomContent">
             <!-- Devices for selected room will be populated here -->
         </div>
@@ -109,9 +61,6 @@
         <div class="settings-tabs">
             <button class="tab-button active" data-tab="ha-config">Home Assistant</button>
             <button class="tab-button" data-tab="rooms">Rooms</button>
-            <button class="tab-button spotify-tab" data-tab="spotify">
-                <i class="fab fa-spotify"></i> Spotify
-            </button>
         </div>
         <div class="settings-tab-content">
             <!-- Home Assistant Config Tab -->
@@ -134,204 +83,154 @@
                     <!-- Rooms will be populated here -->
                 </div>
             </div>
-            
-            <!-- Spotify Config Tab -->
-            <div class="tab-panel" id="spotify">
-                <div class="spotify-settings">
-                    <div id="spotifyStatus" class="spotify-status">
-                        Checking Spotify connection...
-                    </div>
-                    <form id="spotifyConfigForm">
-                        <div class="form-group">
-                            <label for="spotifyClientId">Client ID</label>
-                            <input type="text" id="spotifyClientId" name="client_id" placeholder="Enter your Spotify Client ID">
-                        </div>
-                        <div class="form-group">
-                            <label for="spotifyClientSecret">Client Secret</label>
-                            <input type="password" id="spotifyClientSecret" name="client_secret" placeholder="Enter your Spotify Client Secret">
-                        </div>
-                        <button type="submit" class="save-button">Save Credentials</button>
-                    </form>
-                    <div class="spotify-auth-section" style="display: none;">
-                        <a href="#" id="spotifyAuthLink" class="spotify-auth-button">
-                            <i class="fab fa-spotify"></i> Connect with Spotify
-                        </a>
-                    </div>
-                </div>
-            </div>
         </div>
     </div>
 </div>
 
 <!-- Toast Container -->
 <div class="toast-container"></div>
-
-<!-- Entity Selection Modal -->
-<div id="entityModal" class="modal entity-modal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h4>Add Entities to <span id="modalRoomName"></span></h4>
-            <button type="button" class="modal-close">&times;</button>
-        </div>
-        <div class="modal-body">
-            <div class="entity-search">
-                <input type="text" placeholder="Search entities..." id="entitySearch">
-            </div>
-            <div id="modalEntityList">
-                <!-- Entity sections will be dynamically added here -->
-            </div>
-        </div>
-        <div class="modal-footer">
-            <button type="button" class="modal-cancel">Cancel</button>
-            <button type="button" class="modal-save" disabled>Add Selected</button>
-        </div>
-    </div>
-</div>
-
 <style>
-.scripts-section {
-    margin-bottom: 20px;
-    padding: 0 20px;
-    padding-left: 0px;
-}
-
-.scripts-container {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-}
-
-.script-pill {
-    background: #f5f5f5;
-    border: none;
-    border-radius: 20px;
-    padding: 8px 16px;
-    font-size: 14px;
-    cursor: pointer;
-    position: relative;
-    transition: all 0.2s ease;
-    color: #333;
-    display: flex;
-    align-items: center;
-}
-
-.script-pill:hover {
-    background: #e0e0e0;
-}
-
-.script-pill.loading {
-    pointer-events: none;
-    opacity: 0.7;
-}
-
-.script-pill .script-loader {
-    display: none;
-    width: 12px;
-    height: 12px;
-    border: 2px solid #ffffff;
-    border-top: 2px solid transparent;
-    border-radius: 50%;
-    margin-left: 8px;
-    animation: spin 1s linear infinite;
-}
-
-.script-pill.loading .script-loader {
-    display: block;
-}
-
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-}
-
-.spotify-tab {
-    background: #1DB954;
-    color: white !important;
-}
-
-.spotify-tab.active {
-    background: #1ed760;
-}
-
-.spotify-tab i {
-    font-size: 16px;
-}
-
-.spotify-room {
-    height: 100%;
-    overflow-y: auto;
-}
-
-
-
-.spotify-track-info {
-    display: flex;
-    align-items: center;
-    gap: 15px;
-    flex: 1;
-}
-
-.spotify-track-image {
-    width: 50px;
-    height: 50px;
-    border-radius: 8px;
-    overflow: hidden;
-}
-
-.spotify-track-image img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-.spotify-track-details {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
-.spotify-track-name {
-    font-size: 15px;
-    font-weight: 400;
-    color: #434343;
-}
-
-.spotify-track-artist {
-    font-size: 13px;
-    color: #666;
-}
-
-.spotify-controls {
-    display: flex;
-    align-items: center;
-    gap: 15px;
-}
-
-.spotify-control-button {
-    background: none;
-    border: none;
-    padding: 8px;
-    cursor: pointer;
-    border-radius: 50%;
-    transition: all 0.2s ease;
-}
-
-.spotify-control-button:hover {
-    background: rgba(0, 0, 0, 0.05);
-}
-
-.spotify-control-button.play-pause {
-    background: #1DB954;
-    color: white;
-    width: 40px;
-    height: 40px;
-}
-
-.spotify-control-button.play-pause:hover {
-    background: #1ed760;
-    transform: scale(1.05);
-}
-
-
-</style>
+    .scripts-section {
+        margin-bottom: 20px;
+        padding: 0 20px;
+        padding-left: 0px;
+    }
+    
+    .scripts-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+    
+    .script-pill {
+        background: #f5f5f5;
+        border: none;
+        border-radius: 20px;
+        padding: 8px 16px;
+        font-size: 14px;
+        cursor: pointer;
+        position: relative;
+        transition: all 0.2s ease;
+        color: #333;
+        display: flex;
+        align-items: center;
+    }
+    
+    .script-pill:hover {
+        background: #e0e0e0;
+    }
+    
+    .script-pill.loading {
+        pointer-events: none;
+        opacity: 0.7;
+    }
+    
+    .script-pill .script-loader {
+        display: none;
+        width: 12px;
+        height: 12px;
+        border: 2px solid #ffffff;
+        border-top: 2px solid transparent;
+        border-radius: 50%;
+        margin-left: 8px;
+        animation: spin 1s linear infinite;
+    }
+    
+    .script-pill.loading .script-loader {
+        display: block;
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    
+    .spotify-tab {
+        background: #1DB954;
+        color: white !important;
+    }
+    
+    .spotify-tab.active {
+        background: #1ed760;
+    }
+    
+    .spotify-tab i {
+        font-size: 16px;
+    }
+    
+    .spotify-room {
+        height: 100%;
+        overflow-y: auto;
+    }
+    
+    
+    
+    .spotify-track-info {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        flex: 1;
+    }
+    
+    .spotify-track-image {
+        width: 50px;
+        height: 50px;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    
+    .spotify-track-image img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    
+    .spotify-track-details {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+    
+    .spotify-track-name {
+        font-size: 15px;
+        font-weight: 400;
+        color: #434343;
+    }
+    
+    .spotify-track-artist {
+        font-size: 13px;
+        color: #666;
+    }
+    
+    .spotify-controls {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+    }
+    
+    .spotify-control-button {
+        background: none;
+        border: none;
+        padding: 8px;
+        cursor: pointer;
+        border-radius: 50%;
+        transition: all 0.2s ease;
+    }
+    
+    .spotify-control-button:hover {
+        background: rgba(0, 0, 0, 0.05);
+    }
+    
+    .spotify-control-button.play-pause {
+        background: #1DB954;
+        color: white;
+        width: 40px;
+        height: 40px;
+    }
+    
+    .spotify-control-button.play-pause:hover {
+        background: #1ed760;
+        transform: scale(1.05);
+    }
+    </style>
 {% endblock %}

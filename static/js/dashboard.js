@@ -7,16 +7,6 @@ let pendingUpdates = new Set();
 let messageHandlers = new Map(); // Store message handlers globally
 let selectedMediaPlayer = null; // Store the currently selected media player entity_id
 
-let isReorderMode = false;
-let longPressTimer = null;
-const LONG_PRESS_DURATION = 500; // 500ms for long press
-
-let spotifyLibraryLoaded = false;
-
-document.addEventListener('contextmenu', event => {
-    event.preventDefault();
-});
-
 // Time functions
 function updateTime() {
     const now = new Date();
@@ -34,12 +24,25 @@ function updateTime() {
     document.getElementById('currentDate').textContent = dateString;
 }
 
+function getBlindIcons(device) {
+    console.log('getBlindIcons function', device);
+    if (device === 'open') {
+        iconName = 'blindopen';
+    }
+    else {
+        iconName = 'blindclosed'; 
+    };   
+    console.log('returning icon', iconName);
+    // Return the SVG string for the icon
+    return blindIconsSVGs[iconName] || '';
+}
+
 // Weather functions
 async function updateWeather() {
     try {
         const forecastResponse = await fetch('/api/weather/forecast');
         const data = await forecastResponse.json();
-
+        
         if (data.error) {
             const errorHTML = `
                 <div class="error">
@@ -51,83 +54,79 @@ async function updateWeather() {
             return;
         }
 
-        // Map WeatherAPI condition codes to our local icons
         function getLocalIcon(code, isDay) {
+            // Map weather API codes to icon names in our SVG collection
             const iconMap = {
-                1000: isDay ? 'sun1739422508' : 'moon1739422508',  // Clear
-                1003: isDay ? 'cloud_sun1739422508' : 'cloud_moon1739422508',  // Partly cloudy
-                1006: 'cloud1739422508',  // Cloudy
-                1009: 'clouds1739422508',  // Overcast
-                1030: 'cloud1739422508',  // Mist
-                1063: isDay ? 'rain0_sun1739422508' : 'rain1_moon1739422508',  // Patchy rain
-                1186: 'rain01739422508',  // Moderate rain
-                1189: 'rain11739422508',  // Moderate rain
-                1192: 'rain21739422508',  // Heavy rain
-                1273: 'rain_lightning1739422508',  // Patchy light rain with thunder
-                1276: 'rain_lightning1739422508',  // Moderate or heavy rain with thunder
-                1279: isDay ? 'snow_sun1739422508' : 'snow_moon1739422508',  // Light snow
-                1282: 'snow1739422508',  // Heavy snow
-                1069: 'rain_snow1739422508',  // Patchy sleet
-                1114: 'snow1739422508',  // Blowing snow
-                1117: 'snow1739422508',  // Blizzard
-                1135: 'cloud1739422508',  // Fog
-                1087: 'lightning1739422508',  // Thunder
-                1246: 'rain11739422508',  // Torrential rain shower
+                1000: isDay ? 'sun' : 'moon',  // Clear
+                1003: isDay ? 'cloud_sun' : 'cloud_moon',  // Partly cloudy
+                1006: 'cloud',  // Cloudy
+                1009: 'clouds',  // Overcast
+                1030: 'cloud',  // Mist
+                1063: isDay ? 'rain0_sun' : 'rain1_moon',  // Patchy rain
+                1186: 'rain0_sun',  // Moderate rain
+                1189: 'rain0_sun',  // Moderate rain
+                1192: 'rain2',  // Heavy rain
+                1273: 'rain_lightning',  // Patchy light rain with thunder
+                1276: 'rain_lightning',  // Moderate or heavy rain with thunder
+                1279: isDay ? 'snow_sun' : 'snow_moon',  // Light snow
+                1282: 'snow',  // Heavy snow
+                1069: 'rain_snow',  // Patchy sleet
+                1114: 'snow',  // Blowing snow
+                1117: 'snow',  // Blizzard
+                1135: 'cloud',  // Fog
+                1087: 'lightning',  // Thunder
+                1246: 'rain2',  // Torrential rain shower
                 // Wind conditions
-                1030: isDay ? 'cloud_wind_sun1739422508' : 'cloud_wind_moon1739422508',  // Windy with mist
-                1183: isDay ? 'rain1_sun1739422508' : 'rain1_moon1739422508',  // Light rain
+                1030: isDay ? 'cloud_sun' : 'cloud_moon',  // Windy with mist
+                1183: isDay ? 'rain0_sun' : 'rain0_moon',  // Light rain
             };
-
-            const defaultIcon = isDay ? 'cloud_sun1739422508' : 'cloud_moon1739422508';
-            return `/static/images/32/${iconMap[code] || defaultIcon}.png`;
+            
+            const defaultIcon = isDay ? 'cloud_sun' : 'cloud_moon';
+            const iconName = iconMap[code] || defaultIcon;
+            
+            // Return the SVG string for the icon
+            return weatherIconsSVGs[iconName] || '';
         }
-
+        
         const currentWeatherHTML = `
-            <div class="weather-now">
-                <div class="weather-location">${data.location.name}, ${data.location.region}</div>
-                <div class="weather-temp">${data.current.temp_c}°C</div>
-                <div class="weather-condition">
-                    <img src="${getLocalIcon(data.current.condition.code, data.current.is_day)}" 
-                         alt="${data.current.condition.text}"
-                         class="weather-icon">
-                    <span>${data.current.condition.text}</span>
-                </div>
-                <div class="weather-details">
-                    <div>Feels like ${data.current.feelslike_c}°C</div>
-                    <div>Humidity: ${data.current.humidity}%</div>
-                    <div>Wind: ${data.current.wind_kph} km/h ${data.current.wind_dir}</div>
-                    <div>UV Index: ${data.current.uv}</div>
-                </div>
+    <div class="weather-now">
+        <div class="weather-location">Botanic Ridge, ${data.location.region}</div>
+        
+        <div class="weather-temp-max">${data.forecast.forecastday[0].day.maxtemp_c}°C today!</div>
+        <div class="weather-condition">
+            <div class="weather-icon">
+                ${getLocalIcon(data.current.condition.code, data.current.is_day)}
             </div>
-        `;
+            <span>${data.current.condition.text} - its currently ${data.current.temp_c}°C</span>
+        </div>
+       
+    </div>
+`;
         document.querySelector('.current-weather').innerHTML = currentWeatherHTML;
+      
 
-        // Get next 6 hours of forecast
-        const currentHour = new Date().getHours();
-        const hours = data.forecast.forecastday[0].hour
-            .filter(hour => new Date(hour.time).getHours() > currentHour)
-            .slice(0, 6);
-
-        const hourlyForecastHTML = `
-            <div class="forecast-title">Next 6 Hours</div>
-            <div class="forecast-container">
-                <div class="forecast-grid">
-                    ${hours.map(hour => `
-                        <div class="forecast-hour">
-                            <div class="forecast-time">
-                                ${new Date(hour.time).toLocaleTimeString('en-US', { hour: 'numeric', hour12: true })}
-                            </div>
-                            <img src="${getLocalIcon(hour.condition.code, hour.is_day)}" 
-                                 alt="${hour.condition.text}"
-                                 class="weather-icon">
-                            <div class="forecast-temp">${hour.temp_c}°C</div>
-                            <div class="forecast-rain">${hour.chance_of_rain}% rain</div>
-                        </div>
-                    `).join('')}
+        // Get next 3 days of forecast
+const days = data.forecast.forecastday;
+const hourlyForecastHTML = `
+    <div class="forecast-title">Next 3 Days</div>
+    <div class="forecast-container">
+        <div class="forecast-grid">
+            ${days.map(day => `
+                <div class="forecast-hour">
+                    <div class="forecast-time">
+                        ${new Date(day.date).toLocaleString('en-US', { weekday: 'short' })}
+                    </div>
+                    <div class="weather-icon">
+                        ${getLocalIcon(day.day.condition.code, data.current.is_day)}
+                    </div>
+                    <div class="forecast-temp">${day.day.maxtemp_c}°C</div>
+                    <div class="forecast-rain">${day.day.daily_chance_of_rain}% rain</div>
                 </div>
-            </div>
-        `;
-        document.querySelector('.hourly-forecast').innerHTML = hourlyForecastHTML;
+            `).join('')}
+        </div>
+    </div>
+`;
+document.querySelector('.hourly-forecast').innerHTML = hourlyForecastHTML;
 
     } catch (error) {
         console.error('Error fetching weather:', error);
@@ -170,6 +169,7 @@ function connectToHA(config) {
         haSocket = new WebSocket(wsUrl);
 
         haSocket.onopen = () => {
+            console.log('Connected to Home Assistant');
             haSocket.send(JSON.stringify({
                 type: "auth",
                 access_token: config.access_token
@@ -180,6 +180,7 @@ function connectToHA(config) {
             const message = JSON.parse(event.data);
 
             if (message.type === "auth_ok") {
+                console.log('Successfully authenticated with Home Assistant');
                 fetchInitialStates().then(() => {
                     subscribeToStateChanges();
                     resolve();
@@ -195,6 +196,7 @@ function connectToHA(config) {
         };
 
         haSocket.onclose = (event) => {
+            console.log('Disconnected from Home Assistant:', event.code, event.reason);
             // Implement exponential backoff for reconnection
             const backoffDelay = Math.min(1000 * Math.pow(2, haSocket.retries || 0), 30000);
             haSocket.retries = (haSocket.retries || 0) + 1;
@@ -245,19 +247,9 @@ function handleInitialStates(states) {
     // Check for entities that exist in our tracking but not in HA
     const missingEntities = Object.keys(trackedEntities).filter(entityId => !haEntityIds.has(entityId));
 
-    // Track calendar entities
-    states.forEach(state => {
-        if (state.entity_id.startsWith('calendar.')) {
-            trackedEntities[state.entity_id] = {
-                id: state.entity_id,
-                type: 'calendar',
-                name: state.attributes?.friendly_name || state.entity_id.split('.')[1]
-            };
-        }
-    });
-
     // If we found missing entities, send them to backend for removal
     if (missingEntities.length > 0) {
+        console.log('Found missing entities:', missingEntities);
         fetch('/api/entities/remove', {
             method: 'POST',
             headers: {
@@ -284,15 +276,10 @@ function handleInitialStates(states) {
 
     // Update states for existing entities
     states.forEach(state => {
-        if (state && (trackedEntities[state.entity_id] || state.entity_id.startsWith('calendar.'))) {
+        if (state && trackedEntities[state.entity_id]) {
             entityStates[state.entity_id] = state;
         }
     });
-
-    // After processing states, fetch calendar events
-    if (Object.keys(trackedEntities).some(id => id.startsWith('calendar.'))) {
-        fetchCalendarEvents();
-    }
 }
 
 function subscribeToStateChanges() {
@@ -352,6 +339,8 @@ function handleStateChange(data) {
             updateScriptPill(entity_id, new_state);
         } else if (entity_id.startsWith('media_player.')) {
             updateMediaPlayerCard(entity_id, new_state);
+        } else if (entity_id.startsWith('cover.')) {
+            updateCoverCard(entity_id, new_state);
         }
     }
     
@@ -599,12 +588,12 @@ function handleSpotifySearch(e) {
 
     // Debounce search requests
     window.searchTimeout = setTimeout(() => {
-    fetch(`/api/spotify/search?q=${encodeURIComponent(query)}`)
+        fetch(`/api/spotify/search?q=${encodeURIComponent(query)}`)
             .then(response => {
                 if (!response.ok) throw new Error('Search failed');
                 return response.json();
             })
-        .then(data => {
+            .then(data => {
                 const spotifyContent = roomContent.querySelector('.spotify-content');
                 if (!spotifyContent) return;
 
@@ -615,14 +604,6 @@ function handleSpotifySearch(e) {
                         subtitle: item.artists?.[0]?.name || 'Unknown Artist',
                         uri: item.uri,
                         type: 'track'
-                    })) : ''}
-
-                    ${data.artists.length > 0 ? generateSpotifySection('Albums', data.albums, item => ({
-                        image: (item.images && item.images.length > 0) ? item.images[0].url : '/static/images/default-spotify.jpg',
-                        title: item.name,
-                        subtitle: item.artists?.[0]?.name || 'Unknown Artist',
-                        uri: item.uri,
-                        type: 'album'
                     })) : ''}
 
                     ${data.artists.length > 0 ? generateSpotifySection('Artists', data.artists, item => ({
@@ -644,8 +625,8 @@ function handleSpotifySearch(e) {
 
                 spotifyContent.classList.remove('loading');
                 setupSpotifyGridItemListeners();
-        })
-        .catch(error => {
+            })
+            .catch(error => {
                 console.error('Search error:', error);
                 showToast('Search failed. Please try again.', 3000);
                 roomContent.querySelector('.spotify-content')?.classList.remove('loading');
@@ -655,7 +636,6 @@ function handleSpotifySearch(e) {
 
 // Update displaySpotifyRoom to use the new function
 function displaySpotifyRoom() {
-
     const roomContent = document.getElementById('roomContent');
     
     // Show loading state
@@ -685,39 +665,12 @@ function displaySpotifyRoom() {
 }
 
 function loadSpotifyLibrary() {
-    const searchBar = document.querySelector('.spotify-search');
-    
-    // Show search bar
-    searchBar.style.display = 'block';
-    
-    // Create a timeout for the loading message
-    const loadingTimeout = setTimeout(() => {
-        const roomContent = document.getElementById('roomContent');
-        const existingMessage = roomContent.querySelector('.spotify-loading-message');
-        
-        if (!existingMessage && roomContent.querySelector('.spotify-loader')) {
-            const messageDiv = document.createElement('div');
-            messageDiv.className = 'spotify-loading-message';
-            messageDiv.textContent = 'This is taking longer than expected. You may need to reauthenticate with Spotify.';
-            roomContent.querySelector('.spotify-room').appendChild(messageDiv);
-        }
-    }, 3000);
-
     fetch('/api/spotify/library')
         .then(response => {
             if (!response.ok) throw new Error('Failed to load Spotify library');
             return response.json();
         })
         .then(data => {
-            // Clear the timeout since loading completed
-            clearTimeout(loadingTimeout);
-            
-            // Remove any existing loading message
-            const existingMessage = document.querySelector('.spotify-loading-message');
-            if (existingMessage) {
-                existingMessage.remove();
-            }
-
             const roomContent = document.getElementById('roomContent');
             roomContent.innerHTML = `
                 <div class="spotify-room">
@@ -818,21 +771,12 @@ function loadSpotifyLibrary() {
             }
         })
         .catch(error => {
-            // Clear the timeout on error
-            clearTimeout(loadingTimeout);
-            
-            // Remove any existing loading message
-            const existingMessage = document.querySelector('.spotify-loading-message');
-            if (existingMessage) {
-                existingMessage.remove();
-            }
-
             console.error('Error loading Spotify library:', error);
             const roomContent = document.getElementById('roomContent');
             roomContent.innerHTML = `
                 <div class="spotify-room">
                     <div class="spotify-error">
-                        Failed to load Spotify library. Please try again later. Go to Settings and re-authorise your Spotify account.
+                        Failed to load Spotify library. Please try again later.
                     </div>
                 </div>
             `;
@@ -846,28 +790,21 @@ function generateSpotifySection(title, items, itemMapper) {
         <div class="spotify-section">
             <h2>${title}</h2>
             <div class="spotify-grid">
-                ${items.filter(item => item).map(item => {
-                    try {
-                        const { image, title, subtitle, uri, type } = itemMapper(item);
-                        return `
-                            <div class="spotify-grid-item" 
-                                 data-uri="${uri || ''}"
-                                 data-type="${type || ''}">
-                                <div class="grid-item-image">
-                                    <img src="${image || '/static/images/default-spotify.jpg'}" 
-                                         alt="${title || 'Unknown'}"
-                                         onerror="this.src='/static/images/default-spotify.jpg'">
-                                </div>
-                                <div class="grid-item-info">
-                                    <div class="grid-item-title">${title || 'Unknown'}</div>
-                                    <div class="grid-item-subtitle">${subtitle || ''}</div>
-                                </div>
+                ${items.map(item => {
+                    const { image, title, subtitle, uri, type } = itemMapper(item);
+                    return `
+                        <div class="spotify-grid-item" 
+                             data-uri="${uri}"
+                             data-type="${type}">
+                            <div class="grid-item-image">
+                                <img src="${image}" alt="${title}">
                             </div>
-                        `;
-                    } catch (error) {
-                        console.error('Error mapping Spotify item:', error);
-                        return '';
-                    }
+                            <div class="grid-item-info">
+                                <div class="grid-item-title">${title}</div>
+                                <div class="grid-item-subtitle">${subtitle}</div>
+                            </div>
+                        </div>
+                    `;
                 }).join('')}
             </div>
         </div>
@@ -880,18 +817,21 @@ function setupSpotifyGridItemListeners() {
             const uri = item.dataset.uri;
             const type = item.dataset.type;
             
+            console.log('Clicked item:', { uri, type, selectedMediaPlayer });
             
             if (!uri || !selectedMediaPlayer) {
                 showToast('Please select a media player first', 3000);
                 return;
             }
 
-            if (type === 'playlist' || type === 'artist' || type === 'album') {
-                return;
-            }
-
             try {
                 const msgId = getNextMessageId();
+                console.log('Sending play command:', {
+                    msgId,
+                    entityId: selectedMediaPlayer,
+                    uri,
+                    type
+                });
                 
                 pendingUpdates.add(selectedMediaPlayer);
                 
@@ -914,9 +854,11 @@ function setupSpotifyGridItemListeners() {
                     }
                 };
                 
+                console.log('WebSocket message:', message);
                 haSocket.send(JSON.stringify(message));
 
                 const response = await handleCommandResponse(msgId, selectedMediaPlayer);
+                console.log('Command response:', response);
                 
                 showToast(`Playing ${type}...`);
             } catch (error) {
@@ -948,218 +890,202 @@ async function loadRoomDevices(roomId) {
         const response = await fetch(`/api/rooms/${roomId}/devices`);
         const devices = await response.json();
         roomDevices[roomId] = devices;
-        return devices;
     } catch (error) {
         console.error(`Error loading devices for room ${roomId}:`, error);
         roomDevices[roomId] = [];
-        throw error;
     }
 }
 
 function displayRoomDevices(roomId) {
-    // First, reload the room's devices
-    loadRoomDevices(roomId).then(() => {
-        const devices = roomDevices[roomId] || [];
-        
-        // Sort devices by their order within each category
-        const categories = {
-            scripts: devices.filter(d => d.type === 'script').sort((a, b) => a.order - b.order),
-            sensors: devices.filter(d => d.type === 'sensor').sort((a, b) => a.order - b.order),
-            lights: devices.filter(d => d.type === 'light').sort((a, b) => a.order - b.order),
-            switches: devices.filter(d => d.type === 'switch').sort((a, b) => a.order - b.order),
-            climate: devices.filter(d => d.type === 'climate').sort((a, b) => a.order - b.order),
-            media_players: devices.filter(d => d.type === 'media_player').sort((a, b) => a.order - b.order),
-            other: devices.filter(d => !['light', 'climate', 'sensor', 'switch', 'script', 'media_player'].includes(d.type))
-                .sort((a, b) => a.order - b.order),
-        };
-        // Add scripts section if there are scripts
-        const scriptsHTML = categories.scripts.length > 0 ? `
-            <div class="scripts-section">
-                <div class="scripts-container">
-                    ${categories.scripts.map(script => `
-                        <button class="script-pill" 
-                                data-device-id="${script.id}"
-                                data-state="${entityStates[script.id]?.state || 'off'}">
-                            ${script.name}
-                            <div class="script-loader"></div>
-                        </button>
-                    `).join('')}
-                </div>
+    const devices = roomDevices[roomId] || [];
+
+    // Sort devices by their order within each category
+    const categories = {
+        scripts: devices.filter(d => d.type === 'script').sort((a, b) => a.order - b.order),
+        sensors: devices.filter(d => d.type === 'sensor').sort((a, b) => a.order - b.order),
+        lights: devices.filter(d => d.type === 'light').sort((a, b) => a.order - b.order),
+        switches: devices.filter(d => d.type === 'switch').sort((a, b) => a.order - b.order),
+        climate: devices.filter(d => d.type === 'climate').sort((a, b) => a.order - b.order),
+        media_players: devices.filter(d => d.type === 'media_player').sort((a, b) => a.order - b.order),
+        other: devices.filter(d => !['light', 'climate', 'sensor', 'switch', 'script', 'media_player'].includes(d.type))
+            .sort((a, b) => a.order - b.order),
+    };
+    // Add scripts section if there are scripts
+    const scriptsHTML = categories.scripts.length > 0 ? `
+        <div class="scripts-section">
+            <div class="scripts-container">
+                ${categories.scripts.map(script => `
+                    <button class="script-pill" 
+                            data-device-id="${script.id}"
+                            data-state="${entityStates[script.id]?.state || 'off'}">
+                        ${script.name}
+                        <div class="script-loader"></div>
+                    </button>
+                `).join('')}
             </div>
-        ` : '';
+        </div>
+    ` : '';
 
-        // Check if there are any non-climate devices
-        const hasNonClimateDevices = Object.entries(categories)
-            .filter(([category]) => category !== 'climate')
-            .some(([_, devices]) => devices.length > 0);
+    // Check if there are any non-climate devices
+    const hasNonClimateDevices = Object.entries(categories)
+        .filter(([category]) => category !== 'climate')
+        .some(([_, devices]) => devices.length > 0);
 
-        // Define the order of categories
-        const categoryOrder = ['sensors', 'lights', 'switches', 'media_players', 'other'];
+    // Define the order of categories
+    const categoryOrder = ['sensors', 'lights', 'switches', 'media_players', 'other'];
 
-        // Generate sections HTML only if there are non-climate devices
-        const sectionsHTML = hasNonClimateDevices ? 
-            categoryOrder
-                .map(category => {
-                    const deviceList = categories[category];
-                    if (deviceList.length === 0) return '';
+    // Generate sections HTML only if there are non-climate devices
+    const sectionsHTML = hasNonClimateDevices ? 
+        categoryOrder
+            .map(category => {
+                const deviceList = categories[category];
+                if (deviceList.length === 0) return '';
 
-                    return `
-                        <div class="device-section">
-                            <h2 class="section-title">${category.charAt(0).toUpperCase() + category.slice(1).replace('_', ' ')}</h2>
-                            <div class="devices-grid">
-                                ${deviceList.map(device => {
-                                    const currentState = entityStates[device.id] || {};
-                                    
-                                    if (device.type === 'media_player') {
-                                        return getMediaPlayerCard(device, currentState);
-                                    }
-                                    
-                                    const isOn = currentState.state === 'on';
-                                    const brightness = currentState.attributes?.brightness || 0;
-                                    
-                                    return `
-                                        <div class="device-card ${device.type === 'light' ? 'light-card' : ''} 
-                                                        ${device.type === 'sensor' ? 'sensor-card' : ''}
-                                                        ${device.type === 'switch' ? 'switch-card' : ''}" 
-                                             data-device-id="${device.id}"
-                                             data-state="${currentState.state || 'unknown'}"
-                                             ${(device.type === 'switch') ? 'data-action="toggle"' : ''}>
-                                            <div class="device-controls">
-                                                ${device.type === 'light' ? getLightControls({
-                                                    ...device,
-                                                    state: currentState.state,
-                                                    attributes: currentState.attributes
-                                                }) : device.type === 'switch' ? getSwitchControls({
-                                                    ...device,
-                                                    state: currentState.state,
-                                                    attributes: currentState.attributes
-                                                }) : getDeviceControls({
-                                                    ...device,
-                                                    state: currentState.state,
-                                                    attributes: currentState.attributes
-                                                })}
-                                            </div>
+                return `
+                    <div class="device-section">
+                        <h2 class="section-title">${category.charAt(0).toUpperCase() + category.slice(1).replace('_', ' ')}</h2>
+                        <div class="devices-grid">
+                            ${deviceList.map(device => {
+                                const currentState = entityStates[device.id] || {};
+                                
+                                if (device.type === 'media_player') {
+                                    return getMediaPlayerCard(device, currentState);
+                                }
+                                
+                                const isOn = currentState.state === 'on';
+                                const brightness = currentState.attributes?.brightness || 0;
+                                
+                                return `
+                                    <div class="device-card ${device.type === 'light' ? 'light-card' : ''} 
+                                                    ${device.type === 'sensor' ? 'sensor-card' : ''}
+                                                    ${device.type === 'switch' ? 'switch-card' : ''}
+                                                    ${device.type === 'cover' ? 'cover-card' : ''} 
+                                         data-device-id="${device.id}"
+                                         data-state="${currentState.state || 'unknown'}"
+                                         ${(device.type === 'switch') ? 'data-action="toggle"' : ''}>
+                                        <div class="device-controls">
+                                            ${device.type === 'light' ? getLightControls({
+                                                ...device,
+                                                state: currentState.state,
+                                                attributes: currentState.attributes
+                                            }) : device.type === 'switch' ? getSwitchControls({
+                                                ...device,
+                                                state: currentState.state,
+                                                attributes: currentState.attributes
+                                            }) : device.type === 'cover' ? getCoverControls({
+                                                ...device,
+                                                state: currentState.state,
+                                                attributes: currentState.attributes
+                                            }) : getDeviceControls({
+                                                ...device,
+                                                state: currentState.state,
+                                                attributes: currentState.attributes
+                                            })}
                                         </div>
-                                    `;
-                                }).join('')}
-                            </div>
+                                    </div>
+                                `;
+                            }).join('')}
                         </div>
-                    `;
-                }).join('') :
-            `<div class="empty-state">
-                <p>No devices in this room yet</p>
-                <p class="empty-state-hint">Add devices to this room to see them here.</p>
-                <button class="add-device-btn"">
-                    <i class="fa-solid fa-plus"></i> Add Device
-                </button>
-            </div>`;
-        
-
-        // Only add climate bar and modal if we have climate devices
-        const climateDevices = categories.climate;
-        const climateHTML = climateDevices.length > 0 ? `
-            <div class="climate-control-bar">
-                ${climateDevices.map(device => {
-                    const state = entityStates[device.id] || {};
-                    const currentTemp = state.attributes?.temperature || 0;
-                    const currentMode = state.state || 'off';
-                    const fanMode = state.attributes?.fan_mode || 'auto';
-                    const currentRoomTemp = state.attributes?.current_temperature || '—';
-                    
-                    const displayMode = currentMode.charAt(0).toUpperCase() + currentMode.slice(1);
-                    const displayFanMode = fanMode.charAt(0).toUpperCase() + fanMode.slice(1);
-                    
-                    return `
-                        <div class="climate-control">
-                            <span class="climate-label">Currently ${currentRoomTemp}°C</span>
-                            <div class="temp-display" data-device-id="${device.id}">
-                                ${currentTemp}°C
-                            </div>
-                        </div>
-                        <div class="climate-control">
-                            <span class="climate-label">Mode</span>
-                            <div class="climate-value">
-                                <div class="climate-value-display" data-type="mode" data-device-id="${device.id}">
-                                    <span class="current-value">${displayMode}</span>
-                                </div>
-                                <div class="climate-dropdown" data-type="mode">
-                                    ${(state.attributes?.hvac_modes || []).map(mode => `
-                                        <div class="climate-option ${mode === currentMode ? 'selected' : ''}" 
-                                             data-value="${mode}">
-                                            ${mode.charAt(0).toUpperCase() + mode.slice(1)}
-                                        </div>
-                                    `).join('')}
-                                </div>
-                            </div>
-                        </div>
-                        <div class="climate-control">
-                            <span class="climate-label">Fan</span>
-                            <div class="climate-value">
-                                <div class="climate-value-display" data-type="fan" data-device-id="${device.id}">
-                                    <span class="current-value">${displayFanMode}</span>
-                                </div>
-                                <div class="climate-dropdown" data-type="fan">
-                                    ${(state.attributes?.fan_modes || []).map(mode => `
-                                        <div class="climate-option ${mode === fanMode ? 'selected' : ''}" 
-                                             data-value="${mode}">
-                                            ${mode.charAt(0).toUpperCase() + mode.slice(1)}
-                                        </div>
-                                    `).join('')}
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                }).join('')}
-            </div>
-            <div class="temp-modal">
-                <div class="temp-slider-container">
-                    <div class="current-temp-display">20°C</div>
-                    <canvas class="circular-slider" width="300" height="300"></canvas>
-                    <div class="temp-loader">
-                        <div class="loader-spinner"></div>
                     </div>
+                `;
+            }).join('') :
+        `<div class="empty-state">
+            <p>No devices in this room yet</p>
+            <p class="empty-state-hint">Add devices to this room to see them here.</p>
+        </div>`;
+
+    // Only add climate bar and modal if we have climate devices
+    const climateDevices = categories.climate;
+    const climateHTML = climateDevices.length > 0 ? `
+        <div class="climate-control-bar">
+            ${climateDevices.map(device => {
+                const state = entityStates[device.id] || {};
+                const currentTemp = state.attributes?.temperature || 0;
+                const currentMode = state.state || 'off';
+                const fanMode = state.attributes?.fan_mode || 'auto';
+                const currentRoomTemp = state.attributes?.current_temperature || '—';
+                
+                const displayMode = currentMode.charAt(0).toUpperCase() + currentMode.slice(1);
+                const displayFanMode = fanMode.charAt(0).toUpperCase() + fanMode.slice(1);
+                
+                return `
+                    <div class="climate-control">
+                        <span class="climate-label">Currently ${currentRoomTemp}°C</span>
+                        <div class="temp-display" data-device-id="${device.id}">
+                            ${currentTemp}°C
+                        </div>
+                    </div>
+                    <div class="climate-control">
+                        <span class="climate-label">Mode</span>
+                        <div class="climate-value">
+                            <div class="climate-value-display" data-type="mode" data-device-id="${device.id}">
+                                <span class="current-value">${displayMode}</span>
+                            </div>
+                            <div class="climate-dropdown" data-type="mode">
+                                ${(state.attributes?.hvac_modes || []).map(mode => `
+                                    <div class="climate-option ${mode === currentMode ? 'selected' : ''}" 
+                                         data-value="${mode}">
+                                        ${mode.charAt(0).toUpperCase() + mode.slice(1)}
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="climate-control">
+                        <span class="climate-label">Fan</span>
+                        <div class="climate-value">
+                            <div class="climate-value-display" data-type="fan" data-device-id="${device.id}">
+                                <span class="current-value">${displayFanMode}</span>
+                            </div>
+                            <div class="climate-dropdown" data-type="fan">
+                                ${(state.attributes?.fan_modes || []).map(mode => `
+                                    <div class="climate-option ${mode === fanMode ? 'selected' : ''}" 
+                                         data-value="${mode}">
+                                        ${mode.charAt(0).toUpperCase() + mode.slice(1)}
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('')}
+        </div>
+        <div class="temp-modal">
+            <div class="temp-slider-container">
+                <div class="current-temp-display">20°C</div>
+                <canvas class="circular-slider" width="300" height="300"></canvas>
+                <div class="temp-loader">
+                    <div class="loader-spinner"></div>
                 </div>
             </div>
-        ` : '';
+        </div>
+    ` : '';
 
-        const roomContent = document.getElementById('roomContent');
-        roomContent.innerHTML = scriptsHTML + sectionsHTML + climateHTML;
-        // Add room ID to content div for reference
-        roomContent.setAttribute('data-room-id', roomId);
+    const roomContent = document.getElementById('roomContent');
+    roomContent.innerHTML = scriptsHTML + sectionsHTML + climateHTML;
+    
+    // Add or remove has-climate class based on presence of climate devices
+    roomContent.classList.toggle('has-climate', climateDevices.length > 0);
 
-        // Add click handler for add device button
-        const addDeviceBtn = roomContent.querySelector('.add-device-btn');
-        if (addDeviceBtn) {
-            addDeviceBtn.onclick = () => showEntityModal(roomId);
-        }
-        
-        // Add or remove has-climate class based on presence of climate devices
-        roomContent.classList.toggle('has-climate', climateDevices.length > 0);
+    // Only setup listeners if we have devices
+    if (climateDevices.length > 0) {
+        setupDeviceControlListeners();
+        setupClimateControlListeners();
+        setupTempControlListeners();
+    } else if (hasNonClimateDevices) {
+        setupDeviceControlListeners();
+    }
 
-        // Only setup listeners if we have devices
-        if (climateDevices.length > 0) {
-            setupDeviceControlListeners();
-            setupClimateControlListeners();
-            setupTempControlListeners();
-        } else if (hasNonClimateDevices) {
-            setupDeviceControlListeners();
-        }
-
-        // Add script execution handler
-        document.querySelectorAll('.script-pill').forEach(pill => {
-            pill.addEventListener('click', async () => {
-                const scriptId = pill.dataset.deviceId;
-                await executeScript(scriptId, pill);
-            });
+    // Add script execution handler
+    document.querySelectorAll('.script-pill').forEach(pill => {
+        pill.addEventListener('click', async () => {
+            const scriptId = pill.dataset.deviceId;
+            await executeScript(scriptId, pill);
         });
-
-        // Add this line to set up media player listeners
-        setupMediaPlayerListeners();
-        initializeEntityCards();
-    }).catch(error => {
-        console.error('Error loading room devices:', error);
-        showToast('Error loading devices. Please try again.', 3000);
     });
+
+    // Add this line to set up media player listeners
+    setupMediaPlayerListeners();
 }
 
 function updateDeviceCard(card, state) {
@@ -1193,6 +1119,8 @@ function updateDeviceCard(card, state) {
         controls.innerHTML = getLightControls(device);
     } else if (device.type === 'switch') {
         controls.innerHTML = getSwitchControls(device);
+    } else if (device.type === 'cover') {
+        controls.innerHTML = getCoverControls(device, state);
     } else {
         controls.innerHTML = getDeviceControls(device);
     }
@@ -1208,6 +1136,8 @@ function getDeviceControls(device) {
             return getClimateControls(device);
         case 'sensor':
             return getSensorControls(device);
+        case 'cover':
+            return getCoverControls(device);
         default:
             return `<button class="toggle-btn" data-action="toggle">
                         ${device.state === 'on' ? 'Turn Off' : 'Turn On'}
@@ -1268,9 +1198,6 @@ function setupDeviceControlListeners() {
         const toggleCircle = card.querySelector('.toggle-circle');
         if (toggleCircle) {
             toggleCircle.addEventListener('click', (e) => {
-                if (isReorderMode) {
-                    return;
-                }
                 e.stopPropagation();
                 showLoader(card);
                 toggleDevice(deviceId);
@@ -1280,15 +1207,48 @@ function setupDeviceControlListeners() {
         // Card click for brightness modal
         if (card.classList.contains('light-card')) {
             card.addEventListener('click', (e) => {
-                if (isReorderMode) {
-                    return;
-                }
                 if (!e.target.closest('.toggle-circle')) {
                     showBrightnessModal(deviceId);
                 }
             });
         }
     });
+
+        // Cover controls
+    document.querySelectorAll('.cover-open-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const card = btn.closest('.device-card');
+            const entityId = card.dataset.deviceId;
+            openCover(entityId);
+        });
+    });
+    
+    document.querySelectorAll('.cover-close-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const card = btn.closest('.device-card');
+            const entityId = card.dataset.deviceId;
+            closeCover(entityId);
+        });
+    });
+    
+    document.querySelectorAll('.cover-stop-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const card = btn.closest('.device-card');
+            const entityId = card.dataset.deviceId;
+            stopCover(entityId);
+        });
+    });
+    
+    // Add debounced listener for cover position sliders to avoid too many API calls
+    document.querySelectorAll('.cover-position-slider').forEach(slider => {
+        slider.addEventListener('change', () => {
+            const card = slider.closest('.device-card');
+            const entityId = card.dataset.deviceId;
+            const position = slider.value;
+            setCoverPosition(entityId, position);
+        });
+    });
+
 }
 
 function showLoader(card) {
@@ -1552,13 +1512,9 @@ function showBrightnessModal(deviceId) {
 }
 
 function setupClimateControlListeners() {
-    
     // Temperature controls
     document.querySelectorAll('.temp-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
-            if (isReorderMode) {
-                return;
-            }
             const deviceId = btn.dataset.deviceId;
             const action = btn.dataset.action;
             const state = entityStates[deviceId];
@@ -1571,9 +1527,6 @@ function setupClimateControlListeners() {
     // Custom dropdown controls
     document.querySelectorAll('.climate-value-display').forEach(display => {
         display.addEventListener('click', (e) => {
-            if (isReorderMode) {
-                return;
-            }
             e.stopPropagation();
             const dropdown = display.parentElement.querySelector('.climate-dropdown');
 
@@ -1588,9 +1541,6 @@ function setupClimateControlListeners() {
 
     document.querySelectorAll('.climate-option').forEach(option => {
         option.addEventListener('click', (e) => {
-            if (isReorderMode) {
-                return;
-            }
             e.stopPropagation();
             const deviceId = option.closest('.climate-value').querySelector('.climate-value-display').dataset.deviceId;
             const type = option.closest('.climate-dropdown').dataset.type;
@@ -1620,9 +1570,6 @@ function setupClimateControlListeners() {
 
     // Close dropdowns when clicking outside
     document.addEventListener('click', () => {
-        if (isReorderMode) {
-            return;
-        }
         document.querySelectorAll('.climate-dropdown.show').forEach(dropdown => {
             dropdown.classList.remove('show');
         });
@@ -1744,9 +1691,6 @@ function setupTempControlListeners() {
 
     tempDisplays.forEach(display => {
         display.addEventListener('click', () => {
-            if (isReorderMode) {
-                return;
-            }
             const deviceId = display.dataset.deviceId;
             const currentTemp = entityStates[deviceId].attributes.temperature;
 
@@ -1886,66 +1830,12 @@ document.addEventListener('DOMContentLoaded', () => {
     setInterval(updateTime, 60000);
 
     updateWeather();
-    setInterval(updateWeather, 300000);
+    setInterval(updateWeather, 900000);
 
     loadRooms();
 
     setupSpotifyControlBar();
-
-    // Add calendar events fetching
-    fetchCalendarEvents();
-    setInterval(fetchCalendarEvents, 300000); // 300000ms = 5 minutes
-
-    // Check if we need to show release notes
-    const releaseDataElement = document.getElementById('release-data');
-    if (releaseDataElement) {
-        const showRelease = releaseDataElement.dataset.showRelease === 'true';
-        const releaseData = JSON.parse(releaseDataElement.dataset.releaseData || '{}');
-        
-        if (showRelease && releaseData) {
-            showReleaseNotesPopup(releaseData);
-        }
-    }
-    
-    setupScrollDots();
-    
-    setupExpandButton();
 });
-
-function setupScrollDots() {
-    const scrollContent = document.querySelector('.scroll-content');
-    const dots = document.querySelectorAll('.scroll-dot');
-    const items = document.querySelectorAll('.scroll-item');
-    
-    // Update active dot based on scroll position
-    function updateActiveDot() {
-        const scrollPosition = scrollContent.scrollLeft;
-        const itemWidth = items[0].offsetWidth;
-        const activeIndex = Math.round(scrollPosition / itemWidth);
-        
-        dots.forEach((dot, index) => {
-            dot.classList.toggle('active', index === activeIndex);
-        });
-    }
-    
-    // Add click handlers to dots
-    dots.forEach((dot) => {
-        dot.addEventListener('click', () => {
-            const index = parseInt(dot.dataset.index);
-            const itemWidth = items[0].offsetWidth;
-            scrollContent.scrollTo({
-                left: itemWidth * index,
-                behavior: 'smooth'
-            });
-        });
-    });
-    
-    // Listen for scroll events
-    scrollContent.addEventListener('scroll', updateActiveDot);
-    
-    // Update on resize
-    window.addEventListener('resize', updateActiveDot);
-}
 
 // Add at the start of the file
 function hideLoader() {
@@ -2144,9 +2034,6 @@ function setupMediaPlayerListeners() {
         
         if (playPauseBtn) {
             playPauseBtn.addEventListener('click', (e) => {
-                if (isReorderMode) {
-                    return;
-                }
                 e.stopPropagation();
                 const state = entityStates[deviceId];
                 if (!state) return;
@@ -2157,9 +2044,6 @@ function setupMediaPlayerListeners() {
         
         if (previousBtn) {
             previousBtn.addEventListener('click', (e) => {
-                if (isReorderMode) {
-                    return;
-                }
                 e.stopPropagation();
                 sendMediaCommand(deviceId, 'media_previous_track');
             });
@@ -2167,9 +2051,6 @@ function setupMediaPlayerListeners() {
         
         if (nextBtn) {
             nextBtn.addEventListener('click', (e) => {
-                if (isReorderMode) {
-                    return;
-                }
                 e.stopPropagation();
                 sendMediaCommand(deviceId, 'media_next_track');
             });
@@ -2177,9 +2058,6 @@ function setupMediaPlayerListeners() {
         
         if (volumeSlider) {
             volumeSlider.addEventListener('change', (e) => {
-                if (isReorderMode) {
-                    return;
-                }
                 e.stopPropagation();
                 const volume = parseInt(e.target.value) / 100;
                 sendVolumeCommand(deviceId, volume);
@@ -2273,9 +2151,7 @@ document.head.appendChild(styleSheet);
 function getMediaPlayerCard(device, state) {
     const hasMedia = !!state.attributes?.media_title;
     const artworkUrl = state.attributes?.entity_picture ? 
-        (state.attributes.entity_picture.startsWith('https://i.scdn.co') ? 
-            state.attributes.entity_picture : 
-            `/api/media_proxy${state.attributes.entity_picture}`) : '';
+        `/api/media_proxy${state.attributes.entity_picture}` : '';
     
     return `
         <div class="device-card media-player-card ${artworkUrl ? 'has-media' : ''}" 
@@ -2537,9 +2413,7 @@ function updateSpotifyControlBar(state) {
     if (state && state.attributes) {
         // Update track image
         if (state.attributes.entity_picture) {
-            trackImage.src = state.attributes.entity_picture.startsWith('https://i.scdn.co') ?
-                state.attributes.entity_picture :
-                `/api/media_proxy${state.attributes.entity_picture}`;
+            trackImage.src = `/api/media_proxy${state.attributes.entity_picture}`;
         } else {
             trackImage.src = '/static/images/default-spotify.jpg';
         }
@@ -2704,1520 +2578,238 @@ function updateVolumeIcon(volume) {
     }
 }
 
-function showPlaylistView(playlistId) {
-    const spotifyContent = document.querySelector('.spotify-content');
-    const searchBar = document.querySelector('.spotify-search');
+// Add function for Cover Entities
+
+function updateCoverCard(entityId, state) {
+    const card = document.querySelector(`[data-device-id="${entityId}"]`);
+    if (!card) return;
     
-    // Hide search bar
-    searchBar.style.display = 'none';
-    
-    spotifyContent.innerHTML = `
-        <div class="playlist-view">
-            <button class="back-button">
-                <i class="fas fa-arrow-left"></i>
-                Back
-            </button>
-            <div class="playlist-loader">
-                <div class="loader-spinner"></div>
-            </div>
-        </div>
-    `;
+    // Update card state
+    card.setAttribute('data-state', state.state);
 
-    // Show the playlist view
-    const playlistView = spotifyContent.querySelector('.playlist-view');
-    playlistView.classList.add('show');
-
-    // Fetch playlist details
-    fetch(`/api/spotify/playlist/${playlistId}`)
-        .then(response => response.json())
-        .then(playlist => {
-            const trackCount = playlist.tracks.total;
-            const duration = formatPlaylistDuration(playlist.tracks.items);
-            
-            playlistView.innerHTML = `
-                <button class="back-button">
-                    <i class="fas fa-arrow-left"></i>
-                    Back
-                </button>
-                <div class="playlist-header">
-                    <div class="playlist-cover">
-                        <img src="${playlist.images[0]?.url || '/static/images/default-playlist.jpg'}" 
-                             alt="${playlist.name}">
-                    </div>
-                    <div class="playlist-info">
-                        <h1 class="playlist-title">${playlist.name}</h1>
-                        <div class="playlist-meta">
-                            ${trackCount} songs • ${duration}
-                        </div>
-                        <button class="playlist-play-button" data-uri="${playlist.uri}">
-                            <i class="fas fa-play"></i>
-                            Play
-                        </button>
-                    </div>
-                </div>
-                <div class="playlist-tracks">
-                    ${playlist.tracks.items.map((item, index) => `
-                        <div class="playlist-track" data-uri="${item.track.uri}" data-context-uri="${playlist.uri}">
-                            <span class="track-number">${index + 1}</span>
-                            <img class="track-image" 
-                                 src="${item.track.album.images[0]?.url || '/static/images/default-track.jpg'}" 
-                                 alt="${item.track.name}">
-                            <div class="track-details">
-                                <div class="track-title">${item.track.name}</div>
-                                <div class="track-artist">${item.track.artists.map(a => a.name).join(', ')}</div>
-                            </div>
-                            <span class="track-duration">${formatDuration(item.track.duration_ms)}</span>
-                        </div>
-                    `).join('')}
-                </div>
-            `;
-
-            // Add event listeners
-            setupPlaylistEventListeners(playlistView);
-        })
-        .catch(error => {
-            console.error('Error loading playlist:', error);
-            playlistView.innerHTML = `
-                <div class="error-message">
-                    Failed to load playlist. Please try again later.
-                </div>
-            `;
-        });
-}
-
-function setupPlaylistEventListeners(playlistView) {
-    // Back button
-    playlistView.querySelector('.back-button').addEventListener('click', () => {
-        loadSpotifyLibrary();
-    });
-
-    // Play button
-    playlistView.querySelector('.playlist-play-button').addEventListener('click', (e) => {
-        const uri = e.currentTarget.dataset.uri;
-        playSpotifyContent(uri);
-    });
-
-    // Individual tracks
-    playlistView.querySelectorAll('.playlist-track').forEach(track => {
-        track.addEventListener('click', (e) => {
-            const trackUri = e.currentTarget.dataset.uri;
-            const contextUri = e.currentTarget.dataset.contextUri;
-            // For individual tracks, we'll use the track URI directly
-            playSpotifyContent(trackUri);
-        });
-    });
-}
-
-function formatPlaylistDuration(tracks) {
-    const totalMs = tracks.reduce((total, item) => total + item.track.duration_ms, 0);
-    const hours = Math.floor(totalMs / (1000 * 60 * 60));
-    const minutes = Math.floor((totalMs % (1000 * 60 * 60)) / (1000 * 60));
-    
-    if (hours > 0) {
-        return `${hours} hr ${minutes} min`;
-    }
-    return `${minutes} min`;
-}
-
-function formatDuration(ms) {
-    const minutes = Math.floor(ms / 60000);
-    const seconds = Math.floor((ms % 60000) / 1000);
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-}
-
-function showArtistView(artistId, fromLibrary = true) {
-    const spotifyContent = document.querySelector('.spotify-content');
-    const searchBar = document.querySelector('.spotify-search');
-    
-    if (fromLibrary) {
-        // Clear navigation history when coming from library
-        navigationHistory = [];
-    }
-    
-    // Hide search bar
-    searchBar.style.display = 'none';
-    
-    spotifyContent.innerHTML = `
-        <div class="artist-view">
-            <button class="back-button">
-                <i class="fas fa-arrow-left"></i>
-                Back
-            </button>
-            <div class="artist-loader">
-                <div class="loader-spinner"></div>
-            </div>
-        </div>
-    `;
-
-    // Show the artist view
-    const artistView = spotifyContent.querySelector('.artist-view');
-    artistView.classList.add('show');
-
-    // Fetch artist details
-    fetch(`/api/spotify/artist/${artistId}`)
-        .then(response => response.json())
-        .then(data => {
-            const { artist, top_tracks, albums } = data;
-            
-            artistView.innerHTML = `
-                <button class="back-button">
-                    <i class="fas fa-arrow-left"></i>
-                    Back
-                </button>
-                <div class="artist-header">
-                    <div class="artist-cover">
-                        <img src="${artist.images[0]?.url || '/static/images/default-artist.jpg'}" 
-                             alt="${artist.name}">
-                    </div>
-                    <div class="artist-info">
-                        <h1 class="artist-name">${artist.name}</h1>
-                        <div class="artist-meta">
-                            ${formatFollowers(artist.followers.total)} followers
-                        </div>
-                    </div>
-                </div>
-                <div class="artist-sections">
-                    <div class="artist-section">
-                        <h2 class="section-title">Popular</h2>
-                        <div class="playlist-tracks">
-                            ${top_tracks.slice(0, 5).map((track, index) => `
-                                <div class="playlist-track" data-uri="${track.uri}">
-                                    <span class="track-number">${index + 1}</span>
-                                    <img class="track-image" 
-                                         src="${track.album.images[0]?.url || '/static/images/default-track.jpg'}" 
-                                         alt="${track.name}">
-                                    <div class="track-details">
-                                        <div class="track-title">${track.name}</div>
-                                        <div class="track-artist">${track.album.name}</div>
-                                    </div>
-                                    <span class="track-duration">${formatDuration(track.duration_ms)}</span>
-                                </div>
-                            `).join('')}
-                        </div>
-                    </div>
-                    <div class="artist-section">
-                        <h2 class="section-title">Albums</h2>
-                        <div class="albums-grid">
-                            ${albums.map(album => `
-                                <div class="album-item" data-uri="${album.uri}">
-                                    <div class="album-cover">
-                                        <img src="${album.images[0]?.url || '/static/images/default-album.jpg'}" 
-                                             alt="${album.name}">
-                                    </div>
-                                    <div class="album-name">${album.name}</div>
-                                    <div class="album-year">${new Date(album.release_date).getFullYear()}</div>
-                                </div>
-                            `).join('')}
-                        </div>
-                    </div>
-                </div>
-            `;
-
-            // Add event listeners
-            setupArtistEventListeners(artistView);
-        })
-        .catch(error => {
-            console.error('Error loading artist:', error);
-            artistView.innerHTML = `
-                <div class="error-message">
-                    Failed to load artist. Please try again later.
-                </div>
-            `;
-        });
-}
-
-function setupArtistEventListeners(artistView) {
-    // Back button
-    artistView.querySelector('.back-button').addEventListener('click', () => {
-        if (navigationHistory.length > 0) {
-            // Restore the previous view
-            const previousView = navigationHistory.pop();
-            const spotifyContent = document.querySelector('.spotify-content');
-            spotifyContent.innerHTML = previousView.content;
-            
-            // Restore scroll position after content is loaded
-            setTimeout(() => {
-                spotifyContent.scrollTop = previousView.scrollPosition;
-                // Reattach event listeners for the artist view
-                if (previousView.type === 'artist') {
-                    setupArtistEventListeners(spotifyContent.querySelector('.artist-view'));
-                }
-            }, 0);
+    // Update position display if available
+    const positionDisplay = card.querySelector('.cover-position');
+    if (positionDisplay) {
+        const position = state.attributes?.current_position;
+        if (position !== undefined) {
+            positionDisplay.textContent = `${Math.round(position)}%`;
         } else {
-            loadSpotifyLibrary();
+            // If position is not available, show the state
+            positionDisplay.textContent = state.state.charAt(0).toUpperCase() + state.state.slice(1);
         }
-    });
-
-    artistView.querySelectorAll('.playlist-track').forEach(track => {
-        track.addEventListener('click', (e) => {
-            const uri = e.currentTarget.dataset.uri;
-            playSpotifyContent(uri);
-        });
-    });
-
-    artistView.querySelectorAll('.album-item').forEach(album => {
-        album.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            const uri = e.currentTarget.dataset.uri;
-            const albumId = uri.split(':')[2];
-            showAlbumView(albumId, true);  // Pass true to indicate it's from artist view
-        });
-    });
-}
-
-function playSpotifyContent(contextUri, trackUri = null) {
-    if (!selectedMediaPlayer || !haSocket || haSocket.readyState !== WebSocket.OPEN) {
-        showToast('Not connected to media player', 3000);
-        return;
     }
 
-    // Show loading state
-    const controlBar = document.querySelector('.spotify-control-bar');
-    if (controlBar) controlBar.classList.add('loading');
+    // Update slider if available
+    const positionSlider = card.querySelector('.cover-position-slider');
+    if (positionSlider && state.attributes?.current_position !== undefined) {
+        positionSlider.value = state.attributes.current_position;
+        positionSlider.disabled = state.state === 'unavailable';
+    }
 
-    // Add to pending updates
-    pendingUpdates.add(selectedMediaPlayer);
+    // Update button states
+    const openBtn = card.querySelector('.cover-open-btn');
+    const closeBtn = card.querySelector('.cover-close-btn');
+    const stopBtn = card.querySelector('.cover-stop-btn');
 
-    // First ensure the media player is on
-    haSocket.send(JSON.stringify({
-        id: getNextMessageId(),
-        type: 'call_service',
-        domain: 'media_player',
-        service: 'turn_on',
-        target: {
-            entity_id: selectedMediaPlayer
-        }
-    }));
+    if (openBtn && closeBtn && stopBtn) {
+        openBtn.disabled = state.state === 'open' || state.state === 'opening' || state.state === 'unavailable';
+        closeBtn.disabled = state.state === 'closed' || state.state === 'closing' || state.state === 'unavailable';
+        stopBtn.disabled = (state.state !== 'opening' && state.state !== 'closing') || state.state === 'unavailable';
+    }
 
-    // Then play the content
-    const data = {
-        media_content_id: trackUri || contextUri,
-        media_content_type: trackUri ? 'music' : 'playlist',
-    };
-
-    haSocket.send(JSON.stringify({
-        id: getNextMessageId(),
-        type: 'call_service',
-        domain: 'media_player',
-        service: 'play_media',
-        target: {
-            entity_id: selectedMediaPlayer
-        },
-        service_data: data
-    }));
-}
-
-// Update the click handler to handle both playlists and artists
-document.addEventListener('click', (e) => {
-    const gridItem = e.target.closest('.spotify-grid-item');
-    if (gridItem) {
-        e.preventDefault();
-        e.stopPropagation();
+    // Update icon based on state
+    const stateIcon = card.querySelector('.device-state-icon');
+    if (stateIcon) {
+        let iconClass = 'fas fa-window-maximize';
         
-        const uri = gridItem.dataset.uri;
-        if (uri?.startsWith('spotify:playlist:')) {
-            const playlistId = uri.split(':')[2];
-            showPlaylistView(playlistId);
-        } else if (uri?.startsWith('spotify:artist:')) {
-            const artistId = uri.split(':')[2];
-            showArtistView(artistId, true); // Indicate this is from library
-        } else if (uri?.startsWith('spotify:album:')) {
-            const albumId = uri.split(':')[2];
-            showAlbumView(albumId, false); // Indicate this is from library
+        if (state.state === 'open') {
+            iconClass = 'fas fa-window-maximize';
+        } else if (state.state === 'closed') {
+            iconClass = 'fas fa-window-minimize';
+        } else if (state.state === 'opening') {
+            iconClass = 'fas fa-arrow-up';
+        } else if (state.state === 'closing') {
+            iconClass = 'fas fa-arrow-down';
         }
+        
+        stateIcon.className = `device-state-icon ${iconClass}`;
     }
-});
+}
 
-// Add a navigation history stack
-let navigationHistory = [];
-
-function showAlbumView(albumId, fromArtist = false) {
-    if (fromArtist) {
-        // Store the current artist view HTML and scroll position
-        const currentView = document.querySelector('.spotify-content').innerHTML;
-        const scrollPosition = document.querySelector('.spotify-content').scrollTop;
-        navigationHistory.push({
-            type: 'artist',
-            content: currentView,
-            scrollPosition: scrollPosition
-        });
-    } else {
-        // Clear navigation history if coming from library
-        navigationHistory = [];
-    }
-
-    const spotifyContent = document.querySelector('.spotify-content');
-    const searchBar = document.querySelector('.spotify-search');
+async function openCover(entityId) {
+    const card = document.querySelector(`[data-device-id="${entityId}"]`);
+    if (!card) return;
     
-    // Hide search bar
-    searchBar.style.display = 'none';
+    showLoader(card);
+    pendingUpdates.add(entityId);
     
-    spotifyContent.innerHTML = `
-        <div class="album-view">
-            <button class="back-button">
-                <i class="fas fa-arrow-left"></i>
-                Back
-            </button>
-            <div class="album-loader">
-                <div class="loader-spinner"></div>
-            </div>
-        </div>
-    `;
-
-    // Show the album view
-    const albumView = spotifyContent.querySelector('.album-view');
-    albumView.classList.add('show');
-
-    // Fetch album details
-    fetch(`/api/spotify/album/${albumId}`)
-        .then(response => response.json())
-        .then(album => {
-            const releaseYear = new Date(album.release_date).getFullYear();
-            const totalDuration = formatAlbumDuration(album.tracks.items);
-            
-            albumView.innerHTML = `
-                <button class="back-button">
-                    <i class="fas fa-arrow-left"></i>
-                    Back
-                </button>
-                <div class="album-header">
-                    <div class="album-cover">
-                        <img src="${album.images[0]?.url || '/static/images/default-album.jpg'}" 
-                             alt="${album.name}">
-                    </div>
-                    <div class="album-info">
-                        <h1 class="album-title">${album.name}</h1>
-                        <div class="album-meta">
-                            ${album.artists.map(artist => artist.name).join(', ')} • ${releaseYear} • 
-                            ${album.total_tracks} songs, ${totalDuration}
-                        </div>
-                        <button class="album-play-button" data-uri="${album.uri}">
-                            <i class="fas fa-play"></i>
-                            Play
-                        </button>
-                    </div>
-                </div>
-                <div class="album-tracks">
-                    ${album.tracks.items.map((track, index) => `
-                        <div class="playlist-track" data-uri="${track.uri}" data-context-uri="${album.uri}">
-                            <span class="track-number" style="padding-right: 20px;">${index + 1}</span>
-                            <div class="track-details">
-                                <div class="track-title">${track.name}</div>
-                                <div class="track-artist">${track.artists.map(a => a.name).join(', ')}</div>
-                            </div>
-                            <span class="track-duration">${formatDuration(track.duration_ms)}</span>
-                        </div>
-                    `).join('')}
-                </div>
-            `;
-
-            // Add event listeners
-            setupAlbumEventListeners(albumView);
-        })
-        .catch(error => {
-            console.error('Error loading album:', error);
-            albumView.innerHTML = `
-                <div class="error-message">
-                    Failed to load album. Please try again later.
-                </div>
-            `;
-        });
-}
-
-function setupAlbumEventListeners(albumView) {
-    // Back button
-    albumView.querySelector('.back-button').addEventListener('click', () => {
-        if (navigationHistory.length > 0) {
-            // Restore the previous view
-            const previousView = navigationHistory.pop();
-            const spotifyContent = document.querySelector('.spotify-content');
-            spotifyContent.innerHTML = previousView.content;
-            
-            // Restore scroll position after content is loaded
-            setTimeout(() => {
-                spotifyContent.scrollTop = previousView.scrollPosition;
-                // Reattach event listeners for the artist view
-                if (previousView.type === 'artist') {
-                    setupArtistEventListeners(spotifyContent.querySelector('.artist-view'));
-                }
-            }, 0);
-        } else {
-            loadSpotifyLibrary();
-        }
-    });
-
-    // Play button
-    albumView.querySelector('.album-play-button').addEventListener('click', (e) => {
-        const uri = e.currentTarget.dataset.uri;
-        playSpotifyContent(uri);
-    });
-
-    // Individual tracks
-    albumView.querySelectorAll('.playlist-track').forEach(track => {
-        track.addEventListener('click', (e) => {
-            const trackUri = e.currentTarget.dataset.uri;
-            const contextUri = e.currentTarget.dataset.contextUri;
-            playSpotifyContent(trackUri);
-        });
-    });
-}
-
-function formatAlbumDuration(tracks) {
-    const totalMs = tracks.reduce((total, track) => total + track.duration_ms, 0);
-    const minutes = Math.floor(totalMs / 60000);
-    
-    if (minutes >= 60) {
-        const hours = Math.floor(minutes / 60);
-        const remainingMinutes = minutes % 60;
-        return `${hours} hr ${remainingMinutes} min`;
-    }
-    return `${minutes} min`;
-}
-
-// Add this function to handle entering/exiting reorder mode
-function toggleReorderMode(roomId) {
-    isReorderMode = !isReorderMode;
-    const room = document.querySelector(`.room-content[data-room-id="${roomId}"]`);
-    if (!room) {
-        console.error(`Could not find room with ID ${roomId}`);
-        return;
-    }
-    room.classList.toggle('reorder-mode', isReorderMode);
-
-    // Add or remove the "Add devices" button
-    let addDevicesButton = room.querySelector('.add-devices-button');
-    if (isReorderMode) {
-        if (!addDevicesButton) {
-            const roomName = document.querySelector(`[data-room-id="${roomId}"]`)?.querySelector('.room-name')?.textContent || 'Room';
-            addDevicesButton = document.createElement('button');
-            addDevicesButton.className = 'add-devices-button';
-            addDevicesButton.innerHTML = '<i class="fas fa-plus"></i> Add Devices';
-            addDevicesButton.onclick = () => showEntityModal(roomId, roomName);
-            room.insertBefore(addDevicesButton, room.firstChild);
-        }
-
-        // Add remove buttons to all device cards and script pills
-        room.querySelectorAll('.device-card, .script-pill').forEach(element => {
-            if (!element.querySelector('.remove-device-button')) {
-                const removeButton = document.createElement('button');
-                removeButton.className = 'remove-device-button';
-                removeButton.innerHTML = '<i class="fas fa-minus"></i>';
-                removeButton.onclick = async (e) => {
-                    e.stopPropagation();
-                    const entityId = element.dataset.deviceId;
-                    try {
-                        const response = await fetch(`/api/rooms/${roomId}/devices/${entityId}`, {
-                            method: 'DELETE'
-                        });
-                        
-                        if (!response.ok) {
-                            throw new Error('Failed to remove device');
-                        }
-
-                        await loadRoomDevices(roomId);
-                        displayRoomDevices(roomId);
-                        
-                        isReorderMode = true;
-                        toggleReorderMode(roomId);
-                        
-                        displayRoomDevices(roomId);
-                        
-                        showToast('Device removed successfully');
-                    } catch (error) {
-                        console.error('Error removing device:', error);
-                        showToast('Failed to remove device', 3000);
-                    }
-                };
-                element.appendChild(removeButton);
-            }
-        });
-    } else {
-        // Remove add devices button and remove buttons
-        if (addDevicesButton) {
-            addDevicesButton.remove();
-        }
-        room.querySelectorAll('.remove-device-button').forEach(button => button.remove());
-    }
-
-    // Initialize or destroy Sortable instances for each section
-    const deviceSections = room.querySelectorAll('.device-section .devices-grid');
-    const scriptsContainer = room.querySelector('.scripts-container');
-    
-    // Handle device sections
-    deviceSections.forEach(section => {
-        const sectionType = section.closest('.device-section').querySelector('.section-title').textContent.toLowerCase();
-        
-        const existingSortable = Sortable.get(section);
-        if (existingSortable) {
-            existingSortable.destroy();
-        }
-        
-        if (isReorderMode) {
-            new Sortable(section, {
-                animation: 150,
-                handle: '.device-card',
-                group: sectionType,
-                onEnd: async function(evt) {
-                    const sectionElement = evt.to.closest('.device-section');
-                    const sectionType = sectionElement.querySelector('.section-title').textContent.toLowerCase();
-                    await updateEntityOrder(roomId, sectionType);
-                }
-            });
-        }
-    });
-
-    // Handle scripts section
-    if (scriptsContainer) {
-        const existingSortable = Sortable.get(scriptsContainer);
-        if (existingSortable) {
-            existingSortable.destroy();
-        }
-        
-        if (isReorderMode) {
-            new Sortable(scriptsContainer, {
-                animation: 150,
-                handle: '.script-pill',
-                group: 'scripts',
-                onEnd: async function(evt) {
-                    await updateEntityOrder(roomId, 'scripts');
-                }
-            });
-        }
-    }
-}
-
-// Update the entity order update function to handle scripts
-async function updateEntityOrder(roomId, sectionType) {
-    const section = sectionType === 'scripts' 
-        ? document.querySelector(`.room-content[data-room-id="${roomId}"] .scripts-container`)
-        : document.querySelector(`.room-content[data-room-id="${roomId}"] .device-section .devices-grid`);
-        
-    if (!section) {
-        console.error('Could not find section');
-        return;
-    }
-
-    const entityIds = Array.from(
-        section.querySelectorAll(sectionType === 'scripts' ? '.script-pill' : '.device-card')
-    ).map(element => element.dataset.deviceId);
-
     try {
-        const response = await fetch(`/api/rooms/${roomId}/entities/reorder`, {
+        const response = await fetch('/api/services/cover/open_cover', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                entityIds: entityIds,
-                groupType: sectionType
+                entity_id: entityId
             })
         });
-
+        
         if (!response.ok) {
-            throw new Error('Failed to update entity order');
+            throw new Error(`Failed to open cover: ${response.statusText}`);
         }
     } catch (error) {
-        console.error('Error updating entity order:', error);
-        showToast('Failed to save new order', 3000);
+        console.error('Error opening cover:', error);
+        showToast(`Error opening cover: ${error.message}`, 3000);
+    } finally {
+        hideLoader(card);
     }
 }
 
-// Update the click handler for entity cards
-function initializeEntityCards() {
-    const cards = document.querySelectorAll('.device-card, .script-pill');
-
-    cards.forEach(card => {
-        let startTime;
-        let startTouch;
-
-        // Mouse Events
-        card.addEventListener('mousedown', (e) => {
-            if (isReorderMode) return;
-            startTime = Date.now();
-            longPressTimer = setTimeout(() => {
-                const room = card.closest('.room-content');
-                if (!room) {
-                    console.error('Could not find parent room element');
-                    return;
-                }
-                const roomId = room.dataset.roomId;
-                if (roomId) {
-                    toggleReorderMode(roomId);
-                } else {
-                    console.error('Room ID not found on room element');
-                }
-            }, LONG_PRESS_DURATION);
-        });
-
-        card.addEventListener('mouseup', (e) => {
-            if (longPressTimer) {
-                clearTimeout(longPressTimer);
-                longPressTimer = null;
-            }
-            
-            // Only handle click if it's a short press and not in reorder mode
-            if (!isReorderMode && Date.now() - startTime < LONG_PRESS_DURATION) {
-                handleCardClick(card, e);
-            }
-        });
-
-        card.addEventListener('mouseleave', () => {
-            if (longPressTimer) {
-                clearTimeout(longPressTimer);
-                longPressTimer = null;
-            }
-        });
-
-        // Touch Events
-        card.addEventListener('touchstart', (e) => {
-            if (isReorderMode) return;
-            startTime = Date.now();
-            startTouch = e.touches[0];
-            longPressTimer = setTimeout(() => {
-                const room = card.closest('.room-content');
-                if (!room) {
-                    console.error('Could not find parent room element');
-                    return;
-                }
-                const roomId = room.dataset.roomId;
-                if (roomId) {
-                    toggleReorderMode(roomId);
-                } else {
-                    console.error('Room ID not found on room element');
-                }
-            }, LONG_PRESS_DURATION);
-        }, { passive: true });
-
-        card.addEventListener('touchend', (e) => {
-            if (longPressTimer) {
-                clearTimeout(longPressTimer);
-                longPressTimer = null;
-            }
-            
-            // Only handle tap if it's a short press and not in reorder mode
-            if (!isReorderMode && Date.now() - startTime < LONG_PRESS_DURATION) {
-                handleCardClick(card, e);
-            }
-        });
-
-        card.addEventListener('touchmove', (e) => {
-            if (longPressTimer) {
-                // Cancel long press if user moves finger more than 10px
-                const touch = e.touches[0];
-                const moveThreshold = 10;
-                
-                if (Math.abs(touch.clientX - startTouch.clientX) > moveThreshold ||
-                    Math.abs(touch.clientY - startTouch.clientY) > moveThreshold) {
-                    clearTimeout(longPressTimer);
-                    longPressTimer = null;
-                }
-            }
-        }, { passive: true });
-    });
-
-    // Add click handler to exit reorder mode when clicking outside cards
-    document.addEventListener('click', (e) => {
-        if (isReorderMode && 
-            !e.target.closest('.device-card') && 
-            !e.target.closest('.add-devices-button') && // Ignore clicks on the add devices button
-            !e.target.closest('.modal-content')) {      // Ignore clicks inside the modal
-            const room = document.querySelector('.room-content.reorder-mode');
-            if (room) {
-                toggleReorderMode(room.dataset.roomId);
-            }
-        }
-    });
-}
-
-// Add this helper function to handle card clicks
-function handleCardClick(card, event) {
-    const entityId = card.dataset.entityId;
-    const domain = card.dataset.domain;
+async function closeCover(entityId) {
+    const card = document.querySelector(`[data-device-id="${entityId}"]`);
+    if (!card) return;
     
-    // Your existing click handling logic here
-    if (domain === 'light' || domain === 'switch') {
-        event.preventDefault();
-        toggleDevice(entityId, card);
-    } else if (domain === 'climate') {
-        // Climate control handling
-    } else if (domain === 'media_player') {
-        // Media player handling
-    }
-    // ... rest of your click handling logic ...
-}
-
-// Add this near the top of the file with other initialization code
-function showReleaseNotesPopup(releaseData) {
-    const popup = document.createElement('div');
-    popup.className = 'release-popup';
-    popup.innerHTML = `
-        <div class="release-popup-content">
-            <h2>What's New in ${releaseData.release_version}</h2>
-            <div class="release-date">Released on ${new Date(releaseData.release_date).toLocaleDateString()}</div>
-            ${releaseData.release_notes}
-            <button class="release-popup-button">Got it!</button>
-        </div>
-    `;
-
-    document.body.appendChild(popup);
-
-    // Add fade-in effect
-    setTimeout(() => popup.classList.add('show'), 10);
-
-    // Handle confirmation
-    popup.querySelector('.release-popup-button').addEventListener('click', async () => {
-        try {
-            const response = await fetch('/api/release/viewed', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            });
-
-            if (!response.ok) throw new Error('Failed to mark release as viewed');
-
-            // Remove popup with fade-out effect
-            popup.classList.remove('show');
-            setTimeout(() => popup.remove(), 300);
-        } catch (error) {
-            console.error('Error marking release as viewed:', error);
-        }
-    });
-}
-
-// Add these helper functions
-function getEntityIcon(domain) {
-    const iconMap = {
-        light: 'lightbulb',
-        switch: 'power-off',
-        climate: 'temperature-half',
-        sensor: 'gauge',
-        binary_sensor: 'toggle-on',
-        script: 'code',
-        media_player: 'play-circle',
-        camera: 'video',
-        cover: 'blinds',
-        fan: 'fan',
-        default: 'circle-dot'
-    };
-    return iconMap[domain] || iconMap.default;
-}
-
-async function showEntityModal(roomId, roomName) {
-    const modal = document.getElementById('entityModal');
-    const modalRoomName = document.getElementById('modalRoomName');
-    const modalEntityList = document.getElementById('modalEntityList');
-    const searchInput = document.getElementById('entitySearch');
-    const saveBtn = modal.querySelector('.modal-save');
-    
-    // Reset modal state
-    modalRoomName.textContent = roomName;
-    searchInput.value = '';
-    saveBtn.disabled = true;
+    showLoader(card);
+    pendingUpdates.add(entityId);
     
     try {
-        // Get all available entities
-        const entitiesResponse = await fetch('/api/ha/entities');
-        const allEntities = await entitiesResponse.json();
-        
-        // Get current room's entities
-        const roomDevicesResponse = await fetch(`/api/rooms/${roomId}/devices`);
-        const roomDevices = await roomDevicesResponse.json();
-        
-        // Create a set of existing entity IDs for quick lookup
-        const existingEntityIds = new Set(roomDevices.map(device => device.id));
-        
-        // Check if room has a climate device
-        const hasClimate = roomDevices.some(device => device.type === 'climate');
-        
-        // Filter out existing entities and handle climate devices
-        const availableEntities = allEntities.filter(entity => {
-            
-            // Filter out existing entities
-            if (existingEntityIds.has(entity.entity_id)) {
-                return false;
-            }
-            
-            // Filter out climate entities if room already has one
-            if (hasClimate && entity.domain === 'climate') {
-                return false;
-            }
-            
-            return true;
+        const response = await fetch('/api/services/cover/close_cover', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                entity_id: entityId
+            })
         });
         
-        // Group filtered entities by domain
-        const groupedEntities = groupEntitiesByDomain(availableEntities);
-        
-        function renderEntities(searchTerm = '') {
-            const filteredEntities = searchTerm 
-                ? availableEntities.filter(e => 
-                    e.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    e.entity_id.toLowerCase().includes(searchTerm.toLowerCase()))
-                : availableEntities;
-            
-            const groupedFiltered = groupEntitiesByDomain(filteredEntities);
-            
-            modalEntityList.innerHTML = Object.entries(groupedFiltered)
-                .map(([domain, entities]) => `
-                    <div class="entity-section">
-                        <h5 class="entity-section-header">
-                            <i class="fa-solid fa-${getEntityIcon(domain)}"></i>
-                            ${domain.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
-                            ${entities.length > 0 ? `<span class="entity-count">(${entities.length})</span>` : ''}
-                        </h5>
-                        <div class="modal-entity-grid">
-                            ${entities.map(entity => `
-                                <div class="entity-card" 
-                                     data-entity-id="${entity.entity_id}" 
-                                     data-domain="${entity.domain}">
-                                    <div class="entity-icon">
-                                        <i class="fa-solid fa-${getEntityIcon(entity.domain)}"></i>
-                                    </div>
-                                    <div class="entity-friendly-name">${entity.name}</div>
-                                    <div class="entity-full-name">${entity.entity_id}</div>
-                                </div>
-                            `).join('')}
-                        </div>
-                    </div>
-                `).filter(section => section.includes('entity-card')).join('');
-            
-            // Add click handlers for entity cards
-            modalEntityList.querySelectorAll('.entity-card').forEach(card => {
-                card.addEventListener('click', () => {
-                    modalEntityList.querySelectorAll('.entity-card').forEach(c => 
-                        c.classList.remove('selected'));
-                    card.classList.add('selected');
-                    saveBtn.disabled = false;
-                });
-            });
+        if (!response.ok) {
+            throw new Error(`Failed to close cover: ${response.statusText}`);
         }
-        
-        // Initial render
-        renderEntities();
-        
-        // Setup search
-        searchInput.addEventListener('input', (e) => renderEntities(e.target.value));
-        
-        // Update save button handler
-        saveBtn.onclick = async () => {
-            const selectedCard = modalEntityList.querySelector('.entity-card.selected');
-            if (!selectedCard) return;
-            
-            const entityId = selectedCard.dataset.entityId;
-            const domain = selectedCard.dataset.domain;
-            const name = selectedCard.querySelector('.entity-friendly-name').textContent;
-            
-            try {
-                const response = await fetch(`/api/rooms/${roomId}/devices`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        entity_id: entityId,
-                        name: name,
-                        domain: domain
-                    })
-                });
-
-                if (response.ok) {
-                    modal.style.display = 'none';
-                    // Refresh the room content
-                    await displayRoomDevices(roomId);
-                    showToast('Entity added successfully', 'success');
-                } else {
-                    const error = await response.json();
-                    showToast(error.error || 'Error adding entity', 'error');
-                }
-            } catch (error) {
-                console.error('Error saving entity:', error);
-                showToast('Error adding entity', 'error');
-            }
-            toggleReorderMode(roomId);
-        };
-        
-        // Show modal
-        modal.style.display = 'block';
-        
     } catch (error) {
-        console.error('Error loading entities:', error);
-        showToast('Error loading entities', 'error');
+        console.error('Error closing cover:', error);
+        showToast(`Error closing cover: ${error.message}`, 3000);
+    } finally {
+        hideLoader(card);
     }
 }
 
-function groupEntitiesByDomain(entities) {
-    const groups = {
-        script: [],
-        climate: [],
-        media_player: [],
-        light: [],
-        switch: [],
-        sensor: [],
-        binary_sensor: [],
-        other: []
-    };
+async function stopCover(entityId) {
+    const card = document.querySelector(`[data-device-id="${entityId}"]`);
+    if (!card) return;
     
-    entities.forEach(entity => {
-        if (groups.hasOwnProperty(entity.domain)) {
-            groups[entity.domain].push(entity);
-        } else {
-            groups.other.push(entity);
-        }
-    });
+    showLoader(card);
+    pendingUpdates.add(entityId);
     
-    return Object.fromEntries(
-        Object.entries(groups).filter(([_, entities]) => entities.length > 0)
-    );
-}
-
-// Add this function to create and append the modal
-function createEntityModal() {
-    const modal = document.createElement('div');
-    modal.id = 'entityModal';
-    modal.className = 'modal';
-    modal.innerHTML = `
-        <div class="modal-content">
-            <div class="modal-header">
-                <h4>Add Entities to <span id="modalRoomName"></span></h4>
-                <button type="button" class="modal-close">&times;</button>
-            </div>
-            <div class="modal-body">
-                <div class="entity-search">
-                    <input type="text" placeholder="Search entities..." id="entitySearch">
-                </div>
-                <div id="modalEntityList">
-                    <!-- Entity sections will be dynamically added here -->
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="modal-cancel">Cancel</button>
-                <button type="button" class="modal-save" disabled>Add Selected</button>
-            </div>
-        </div>
-    `;
-    document.body.appendChild(modal);
-    initializeModalEvents();
-}
-
-// Add modal initialization
-function initializeModalEvents() {
-    const entityModal = document.getElementById('entityModal');
-    const closeButton = entityModal.querySelector('.modal-close');
-    const cancelButton = entityModal.querySelector('.modal-cancel');
-    
-    [closeButton, cancelButton].forEach(button => {
-        button.addEventListener('click', () => {
-            entityModal.style.display = 'none';
-        });
-    });
-    
-    window.addEventListener('click', (e) => {
-        if (e.target === entityModal) {
-            entityModal.style.display = 'none';
-        }
-    });
-}
-
-// Call this when the page loads
-document.addEventListener('DOMContentLoaded', () => {
-    createEntityModal();
-    // ... existing initialization code ...
-});
-
-function handleEntitySelection(entityId, roomId) {
-    const loader = document.querySelector('.entity-modal .modal-loader');
-    if (loader) loader.classList.add('show');
-
-    // Get the order for the new entity (highest order + 1)
-    const currentDevices = roomDevices[roomId] || [];
-    const newOrder = currentDevices.length > 0 
-        ? Math.max(...currentDevices.map(d => d.order)) + 1 
-        : 0;
-
-    fetch('/api/setup/entities', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            entities: [{
-                entity_id: entityId,
-                name: entityStates[entityId]?.attributes?.friendly_name || entityId,
-                domain: entityId.split('.')[0],
-                rooms: [{
-                    id: roomId,
-                    order: newOrder
-                }]
-            }]
-        })
-    })
-    .then(response => response.json())
-    .then(async data => {
-        if (data.success) {
-            // Reload the room's devices
-            await loadRoomDevices(roomId);
-            
-            // Exit reorder mode
-            isReorderMode = true; // Set to true so toggleReorderMode will turn it off
-            toggleReorderMode(roomId);
-            
-            // Redisplay the room
-            displayRoomDevices(roomId);
-            
-            // Close the modal
-            const modal = document.querySelector('.entity-modal');
-            if (modal) {
-                modal.classList.remove('show');
-                setTimeout(() => modal.remove(), 300);
-            }
-            
-            showToast('Entity added successfully');
-        } else {
-            throw new Error(data.error || 'Failed to add entity');
-        }
-    })
-    .catch(error => {
-        console.error('Error adding entity:', error);
-        showToast(`Failed to add entity: ${error.message}`, 5000);
-    })
-    .finally(() => {
-        if (loader) loader.classList.remove('show');
-    });
-}
-
-function showAddEntityModal(roomId) {
-    // Remove existing modal if any
-    const existingModal = document.querySelector('.entity-modal');
-    if (existingModal) {
-        existingModal.remove();
-    }
-
-    fetch('/api/ha/entities')
-        .then(response => response.json())
-        .then(entities => {
-            // Filter out entities that are already in the room
-            const currentDevices = roomDevices[roomId] || [];
-            const currentEntityIds = new Set(currentDevices.map(d => d.id));
-            
-            const availableEntities = entities.filter(entity => 
-                !currentEntityIds.has(entity.entity_id) &&
-                !entity.entity_id.startsWith('zone.') &&
-                !entity.entity_id.startsWith('persistent_notification.')
-            );
-
-            const modal = document.createElement('div');
-            modal.className = 'entity-modal';
-            modal.innerHTML = `
-                <div class="modal-content">
-                    <h2>Add Entity</h2>
-                    <div class="search-container">
-                        <input type="text" class="entity-search" placeholder="Search entities...">
-                    </div>
-                    <div class="entities-list">
-                        ${availableEntities.map(entity => `
-                            <div class="entity-item" data-entity-id="${entity.entity_id}">
-                                <span class="entity-name">${entity.attributes?.friendly_name || entity.entity_id}</span>
-                                <span class="entity-id">${entity.entity_id}</span>
-                            </div>
-                        `).join('')}
-                    </div>
-                    <div class="modal-loader">
-                        <div class="loader-spinner"></div>
-                    </div>
-                </div>
-            `;
-
-            document.body.appendChild(modal);
-
-            // Show modal with animation
-            requestAnimationFrame(() => {
-                modal.classList.add('show');
-            });
-
-            // Setup search functionality
-            const searchInput = modal.querySelector('.entity-search');
-            const entityItems = modal.querySelectorAll('.entity-item');
-
-            searchInput.addEventListener('input', (e) => {
-                const searchTerm = e.target.value.toLowerCase();
-                entityItems.forEach(item => {
-                    const name = item.querySelector('.entity-name').textContent.toLowerCase();
-                    const id = item.querySelector('.entity-id').textContent.toLowerCase();
-                    const matches = name.includes(searchTerm) || id.includes(searchTerm);
-                    item.style.display = matches ? '' : 'none';
-                });
-            });
-
-            // Setup click handlers
-            entityItems.forEach(item => {
-                item.addEventListener('click', () => {
-                    const entityId = item.dataset.entityId;
-                    handleEntitySelection(entityId, roomId);
-                });
-            });
-
-            // Close modal when clicking outside
-            modal.addEventListener('click', (e) => {
-                if (e.target === modal) {
-                    modal.classList.remove('show');
-                    setTimeout(() => modal.remove(), 300);
-                }
-            });
-        })
-        .catch(error => {
-            console.error('Error fetching entities:', error);
-            showToast('Error fetching entities. Please try again.', 5000);
-        });
-}
-
-function refreshReorderMode(roomId) {
-    const room = document.querySelector(`.room-content[data-room-id="${roomId}"]`);
-    if (!room) {
-        console.error(`Could not find room with ID ${roomId}`);
-        return;
-    }
-
-    // Ensure room has reorder-mode class
-    room.classList.add('reorder-mode');
-
-    // Add the "Add devices" button if it doesn't exist
-    let addDevicesButton = room.querySelector('.add-devices-button');
-    if (!addDevicesButton) {
-        const roomName = document.querySelector(`[data-room-id="${roomId}"]`)?.querySelector('.room-name')?.textContent || 'Room';
-        addDevicesButton = document.createElement('button');
-        addDevicesButton.className = 'add-devices-button';
-        addDevicesButton.innerHTML = '<i class="fas fa-plus"></i> Add Devices';
-        addDevicesButton.onclick = () => showEntityModal(roomId, roomName);
-        room.insertBefore(addDevicesButton, room.firstChild);
-    }
-
-    // Add remove buttons to all device cards
-    room.querySelectorAll('.device-card').forEach(card => {
-        if (!card.querySelector('.remove-device-button')) {
-            const removeButton = document.createElement('button');
-            removeButton.className = 'remove-device-button';
-            removeButton.innerHTML = '<i class="fas fa-minus"></i>';
-            removeButton.onclick = async (e) => {
-                e.stopPropagation(); // Prevent card click event
-                const entityId = card.dataset.deviceId;
-                if (confirm('Are you sure you want to remove this device from the room?')) {
-                    try {
-                        const response = await fetch(`/api/rooms/${roomId}/devices/${entityId}`, {
-                            method: 'DELETE'
-                        });
-                        
-                        if (!response.ok) {
-                            throw new Error('Failed to remove device');
-                        }
-
-                        // Reload and redisplay room devices
-                        await loadRoomDevices(roomId);
-                        displayRoomDevices(roomId);
-                        
-                        // Refresh reorder mode
-                        refreshReorderMode(roomId);
-                        
-                        showToast('Device removed successfully');
-                    } catch (error) {
-                        console.error('Error removing device:', error);
-                        showToast('Failed to remove device', 3000);
-                    }
-                }
-            };
-            card.appendChild(removeButton);
-        }
-    });
-
-    // Initialize Sortable instances for each device section
-    const deviceSections = room.querySelectorAll('.device-section .devices-grid');
-    deviceSections.forEach(section => {
-        const sectionType = section.closest('.device-section').querySelector('.section-title').textContent.toLowerCase();
-        
-        // Destroy existing Sortable instance if it exists
-        const existingSortable = Sortable.get(section);
-        if (existingSortable) {
-            existingSortable.destroy();
-        }
-        
-        // Initialize new Sortable instance
-        new Sortable(section, {
-            animation: 150,
-            handle: '.device-card',
-            group: sectionType,
-            onEnd: async function(evt) {
-                const sectionElement = evt.to.closest('.device-section');
-                const sectionType = sectionElement.querySelector('.section-title').textContent.toLowerCase();
-                await updateEntityOrder(roomId, sectionType);
-            }
-        });
-    });
-}
-
-// Update handleEntitySelection to use refreshReorderMode
-function handleEntitySelection(entityId, roomId) {
-    const loader = document.querySelector('.entity-modal .modal-loader');
-    if (loader) loader.classList.add('show');
-
-    // Get the order for the new entity (highest order + 1)
-    const currentDevices = roomDevices[roomId] || [];
-    const newOrder = currentDevices.length > 0 
-        ? Math.max(...currentDevices.map(d => d.order)) + 1 
-        : 0;
-
-    fetch('/api/setup/entities', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            entities: [{
-                entity_id: entityId,
-                name: entityStates[entityId]?.attributes?.friendly_name || entityId,
-                domain: entityId.split('.')[0],
-                rooms: [{
-                    id: roomId,
-                    order: newOrder
-                }]
-            }]
-        })
-    })
-    .then(response => response.json())
-    .then(async data => {
-        if (data.success) {
-            // Reload the room's devices
-            await loadRoomDevices(roomId);
-            // Redisplay the room
-            displayRoomDevices(roomId);
-            
-            // Close the modal
-            const modal = document.querySelector('.entity-modal');
-            if (modal) {
-                modal.classList.remove('show');
-                setTimeout(() => modal.remove(), 300);
-            }
-            
-            // Refresh reorder mode
-            refreshReorderMode(roomId);
-            
-            showToast('Entity added successfully');
-        } else {
-            throw new Error(data.error || 'Failed to add entity');
-        }
-    })
-    .catch(error => {
-        console.error('Error adding entity:', error);
-        showToast(`Failed to add entity: ${error.message}`, 5000);
-    })
-    .finally(() => {
-        if (loader) loader.classList.remove('show');
-    });
-}
-
-async function fetchCalendarEvents() {
-    if (!haSocket || haSocket.readyState !== WebSocket.OPEN) {
-        console.error('WebSocket not connected');
-        return;
-    }
-
-    // Get all calendar entities
-    const calendarEntities = Object.keys(trackedEntities).filter(id => id.startsWith('calendar.'));
-    
-    // Get today's date at start of day (midnight) and end of day (23:59:59)
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); // Set to start of day
-    const startDateTime = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')} 00:00:00`;
-    const endDateTime = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')} 23:59:59`;
-
     try {
-        // Fetch events for each calendar
-        const eventPromises = calendarEntities.map(async (entityId) => {
-            const msgId = getNextMessageId();
-            
-            return new Promise((resolve, reject) => {
-                // Create message handler for this specific request
-                const messageHandler = (event) => {
-                    const data = JSON.parse(event.data);
-                    if (data.id === msgId) {
-                        haSocket.removeEventListener('message', messageHandler);
-                        if (data.success) {
-                            resolve({
-                                calendar: entityId,
-                                events: data.result?.response?.[entityId]?.events || []
-                            });
-                        } else {
-                            reject(new Error(data.error || 'Failed to fetch calendar events'));
-                        }
-                    }
-                };
-
-                // Add message handler
-                haSocket.addEventListener('message', messageHandler);
-
-                // Send get_events request
-                haSocket.send(JSON.stringify({
-                    id: msgId,
-                    type: 'call_service',
-                    domain: 'calendar',
-                    service: 'get_events',
-                    target: {
-                        entity_id: entityId
-                    },
-                    service_data: {
-                        start_date_time: startDateTime,
-                        end_date_time: endDateTime
-                    },
-                    return_response: true
-                }));
-
-                // Add timeout to prevent hanging
-                setTimeout(() => {
-                    haSocket.removeEventListener('message', messageHandler);
-                    reject(new Error('Timeout waiting for calendar events'));
-                }, 10000); // 10 second timeout
-            });
+        const response = await fetch('/api/services/cover/stop_cover', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                entity_id: entityId
+            })
         });
-
-        // Wait for all calendar events to be fetched
-        const allEvents = await Promise.all(eventPromises);
         
-        // Store events in a global object
-        window.calendarEvents = allEvents.reduce((acc, { calendar, events }) => {
-            acc[calendar] = events;
-            return acc;
-        }, {});
-        
-        // Trigger any UI updates needed
-        updateCalendarDisplay();
-
-    } catch (error) {
-        console.error('Error fetching calendar events:', error);
-    }
-}
-
-function mergeCalendarEvents() {
-    // Get all events from all calendars
-    const allEvents = [];
-    
-    // Iterate through each calendar's events
-    Object.entries(window.calendarEvents || {}).forEach(([calendarId, events]) => {
-        
-        // Extract calendar name from the entity ID
-        const calendarName = trackedEntities[calendarId]?.name || calendarId.split('.')[1];
-        
-        // If the calendar has events, process them
-        if (Array.isArray(events)) {
-            events.forEach(event => {
-                allEvents.push({
-                    ...event,
-                    calendarName,
-                    calendarId,
-                    // Convert ISO string to Date object for sorting
-                    startTime: new Date(event.start),
-                    endTime: new Date(event.end)
-                });
-            });
+        if (!response.ok) {
+            throw new Error(`Failed to stop cover: ${response.statusText}`);
         }
-    });
-    
-    // Sort events by start time
-    const sortedEvents = allEvents.sort((a, b) => a.startTime - b.startTime);
-    
-    return sortedEvents;
+    } catch (error) {
+        console.error('Error stopping cover:', error);
+        showToast(`Error stopping cover: ${error.message}`, 3000);
+    } finally {
+        hideLoader(card);
+    }
 }
 
-function updateCalendarDisplay() {
-    const events = mergeCalendarEvents();
-    const calendarSection = document.querySelector('.calendar-section');
+async function setCoverPosition(entityId, position) {
+    const card = document.querySelector(`[data-device-id="${entityId}"]`);
+    if (!card) return;
     
-    if (!calendarSection) {
-        console.error('Calendar section not found');
-        return;
-    }
-
-    // Format the events into HTML
-    const eventsHtml = events.length > 0 ? events.map(event => {
-        const startTime = event.startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        const endTime = event.endTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    showLoader(card);
+    pendingUpdates.add(entityId);
+    
+    try {
+        const response = await fetch('/api/services/cover/set_cover_position', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                entity_id: entityId,
+                position: parseInt(position)
+            })
+        });
         
-        const eventHtml = `
-            <div class="calendar-event" data-calendar-id="${event.calendarId}">
-                <div class="event-time">
-                    ${startTime} - ${endTime}
-                </div>
-                <div class="event-details">
-                    <div class="event-title">${event.summary}</div>
-                    ${event.location ? `<div class="event-location">${event.location}</div>` : ''}
+        if (!response.ok) {
+            throw new Error(`Failed to set cover position: ${response.statusText}`);
+        }
+    } catch (error) {
+        console.error('Error setting cover position:', error);
+        showToast(`Error setting cover position: ${error.message}`, 3000);
+    } finally {
+        hideLoader(card);
+    }
+}
+
+function getCoverCard(device, state) {
+    const isOpen = state.state === 'open';
+    const isClosed = state.state === 'closed';
+    const isOpening = state.state === 'opening';
+    const isClosing = state.state === 'closing';
+    const position = state.attributes?.current_position;
+    const supportsPosition = position !== undefined;
+    
+    let stateIconClass = 'fas fa-window-maximize';
+    if (isClosed) {
+        stateIconClass = 'fas fa-window-minimize';
+    } else if (isOpening) {
+        stateIconClass = 'fas fa-arrow-up';
+    } else if (isClosing) {
+        stateIconClass = 'fas fa-arrow-down';
+    }
+    
+    return `
+        <div class="device-card cover-card" 
+             data-device-id="${device.id}" 
+             data-state="${state.state}">
+            <div class="device-header">
+                <div class="device-name">${device.name}</div>
+                <div class="device-state">
+                    <i class="device-state-icon ${stateIconClass}"></i>
                 </div>
             </div>
-        `;
-        return eventHtml;
-    }).join('') : '<div class="no-events">No events scheduled for today</div>';
-
-    // Update the calendar section
-    calendarSection.innerHTML = `
-        <div class="calendar-section-title">
-            <span>Today's Events</span>
-        </div>
-        <div class="calendar-events">
-            ${eventsHtml}
+            <div class="device-controls">
+                ${getCoverControls(device, state)}
+            </div>
         </div>
     `;
-
-    // Show swipe hint after calendar update if there are events
-    if (events.length > 0) {
-        showSwipeHint();
-    }
 }
 
-function showSwipeHint() {
-    const events = mergeCalendarEvents();
-    if (events && events.length > 0) {
-        const swipeHint = document.querySelector('.swipe-hint');
-        if (swipeHint) {
-            // Show the hint
-            swipeHint.classList.add('show');
-            
-            // Hide after 5 seconds
-            setTimeout(() => {
-                swipeHint.classList.remove('show');
-            }, 5000);
-        }
+
+function getCoverControls(device, state) {
+    const isOpen = device.state === 'open';
+    const isClosed = device.state === 'closed';
+    const isOpening = device.state === 'opening';
+    const isClosing = device.state === 'closing';
+    const isUnavailable = device.state === 'unavailable';
+    const position = device.state.attributes?.current_position;
+    const supportsPosition = position !== undefined;
+    if (device.state === 'open') {
+        iconName = 'blindopen';
     }
-}
-
-// Add to your initialization code
-document.addEventListener('DOMContentLoaded', () => {
-    // ... existing initialization code ...
-    
-    // Show swipe hint after calendar events are loaded
-    fetchCalendarEvents().then(() => {
-        showSwipeHint();
-    });
-});
-
-function setupExpandButton() {
-    const expandButton = document.querySelector('.expand-button');
-    const scrollSection = document.querySelector('.horizontal-scroll-section');
-    const expandIcon = document.querySelector('.expand-section-icon-mobile');
-    
-    if (!expandButton || !scrollSection) return;
-    
-    expandButton.addEventListener('click', () => {
-        const isExpanded = scrollSection.classList.contains('expanded');
-        
-        // Toggle expanded state
-        scrollSection.classList.toggle('expanded');
-        expandIcon.classList.toggle('expanded');
-        
-        // Update button text
-        const buttonText = expandButton.querySelector('span');
-        buttonText.textContent = isExpanded ? 'Click to expand' : 'Click to hide';
-        
-        // If expanding, ensure swipe hint is shown if there are events
-        if (!isExpanded) {
-            showSwipeHint();
-        }
-    });
+    else {
+        iconName = 'blindclosed'; 
+    };   
+    console.log('getCoverControls', iconName);
+    return `
+        <div class="cover-header">
+            <span class="cover-position">${isUnavailable ? 'Unavailable' : isOpen ? 'Open' : 'Closed'}</span>
+            <div class="toggle-circle" data-action="toggle">
+                ${blindIconsSVGs[iconName]}
+            </div>
+        </div>
+        <div class="device-name">${device.name}</div>
+    `;
 }

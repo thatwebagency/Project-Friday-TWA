@@ -227,7 +227,7 @@ class HomeAssistantClient:
         entities = response_data.get("result", [])
         
         # Define supported domains
-        supported_domains = ['light', 'sensor', 'climate', 'vacuum', 'switch', 'script', 'media_player']
+        supported_domains = ['light', 'sensor', 'climate', 'vacuum', 'cover']
         
         # Format and filter entities for frontend
         formatted_entities = []

@@ -2,7 +2,7 @@
 
 {% block content %}
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
-<script src="{{ url_for('static', filename='js/settings.js') }}"></script>
+<script src="{{ url_for('static', filename='js/setup.js') }}"></script>
 
 <!-- Add CSS for drag handle -->
 <style>
@@ -91,15 +91,30 @@
     }
 </style>
 
+<div class="setup-fade-wrapper">
+    <div class="welcome-text">
+        <div class="greeting-group">
+            <span class="fade-word" id="hi-text"></span>
+        </div>
+        <div class="welcome-group">
+            <span class="fade-word">Welcome to Friday</span>
+        </div>
+        <div class="start-button-container">
+            <button class="start-button fade-word">Get started</button>
+        </div>
+    </div>
+</div>
 <div class="setup-container">
-    <h2 class="setup-header-text">Configure Friday</h2>
-    <div class="settings-tabs">
-        <button class="tab-button active" data-tab="connection">Connection</button>
-        <button class="tab-button" data-tab="rooms">Rooms</button>
-        <button class="tab-button" data-tab="entities">Entities</button>
+    <h2 class="setup-header-text"><span>Hey,</span><span>Let's get setup.</span></h2>
+    <div class="setup-pills">
+        <div class="pill active" data-step="1">1</div>
+        <div class="pill-line"></div>
+        <div class="pill" data-step="2">2</div>
+        <div class="pill-line"></div>
+        <div class="pill" data-step="3">3</div>
     </div>
     
-    <div class="tab-content" id="connection-tab">
+    <div class="setup-step" id="step1">
         <h3 class="setup-step-title">Connect to Home Assistant</h3>
         <form id="haConfig">
             <div class="form-group">
@@ -120,12 +135,12 @@
             </div>
             <div class="connection-status" id="connectionStatus"></div>
             <div class="setup-step-buttons">
-                <button type="button" id="nextButton">Test & Save</button>
+                <button type="button" id="nextButton">Next</button>
             </div>
         </form>
     </div>
     
-    <div class="tab-content" id="rooms-tab">
+    <div class="setup-step" id="step2" style="display: none;">
         <h3 class="setup-step-title">Create your room(s)</h3>
         <form id="roomConfig">
             <div id="roomList">
@@ -133,47 +148,20 @@
             </div>
             <button type="button" class="add-room" onclick="addRoom()">Add Room</button>
             <div class="setup-step-buttons">
-                <button type="button" id="step2Next">Save</button>
+                <button type="button" class="back-button" onclick="goToStep(1)">Back</button>
+                <button type="button" id="step2Next">Next</button>
             </div>
         </form>
     </div>
     
-    <div class="tab-content" id="entities-tab">
+    <div class="setup-step" id="step3" style="display: none;">
         <h3 class="setup-step-title">Manage room entities</h3>
         <div id="roomEntityList">
             <!-- Rooms and their entities will be loaded here -->
         </div>
         <div class="setup-step-buttons">
-            <button onclick="saveEntityConfig()" disabled>Save</button>
-        </div>
-    </div>
-
-    <div id="spotify-tab" class="tab-content">
-        <div class="settings-section">
-            <h3>
-                <svg class="spotify-logo" width="24" height="24" viewBox="0 0 24 24">
-                    <path fill="currentColor" d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
-                </svg>
-                Spotify Integration
-            </h3>
-            <div id="spotify-status" class="status-container">
-                <div class="status-indicator"></div>
-                <span class="status-text">Checking connection...</span>
-            </div>
-            
-            <form id="spotify-form" class="settings-form">
-                <div class="form-group">
-                    <label for="spotify_client_id">Client ID</label>
-                    <input type="text" id="spotify_client_id" name="spotify_client_id" required>
-                </div>
-                
-                <div class="form-group">
-                    <label for="spotify_client_secret">Client Secret</label>
-                    <input type="password" id="spotify_client_secret" name="spotify_client_secret" required>
-                </div>
-                
-                <button type="submit" class="primary-button">Connect Spotify</button>
-            </form>
+            <button type="button" class="back-button" onclick="goToStep(2)">Back</button>
+            <button onclick="saveEntityConfig()" disabled>Complete Setup</button>
         </div>
     </div>
 </div>
@@ -200,7 +188,7 @@
     </div>
 </div>
 
-<!-- Setup Complete Modal -->
+<!-- Add this before the closing </div> of setup-container -->
 <div id="setupCompleteModal" class="modal setup-complete-modal">
     <div class="modal-content setup-complete-content">
         <div class="configuring-state">
